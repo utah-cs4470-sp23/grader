@@ -8,7 +8,7 @@ test-current: test-$(CURRENT)
 count-current: count-$(CURRENT)
 
 count-hw1:
-	@ echo 6
+	@ hw1/test-part $(DIR) count
 
 test-hw1:
 	sh hw1/test-part $(DIR) $(PART)
