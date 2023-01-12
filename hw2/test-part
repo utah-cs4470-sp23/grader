@@ -1,0 +1,73 @@
+#!/bin/sh
+set -e -x
+
+DIR="$1"
+PART="$2"
+# From https://stackoverflow.com/questions/59895/
+HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+
+test1() {
+    PROG="$1"
+    OUT="$2"
+    make -C "$DIR" run TEST="$PROG" | tail -n-2 > "$HERE"/out.txt
+    printf "%s : " $(dirname "$PROG")
+    diff -c "$HERE/$OUT" "$HERE/out.txt" && echo pass
+}
+
+test2() {
+    PROG="$1"
+    make -C "$DIR" run TEST="$PROG" | tail -n-2 > "$HERE"/out.txt
+    if grep -c "Compilation succeeded" "$HERE" && \
+        ! grep -c "Compilation failed" "$HERE"; then
+        echo "pass"
+    else
+        echo "fail: file should have lexed"
+        return 1
+    fi
+}
+
+test3() {
+    PROG="$1"
+    make -C "$DIR" run TEST="$PROG" | tail -n-2 > "$HERE"/out.txt
+    if ! grep -c "Compilation succeeded" "$HERE" && \
+        grep -c "Compilation failed" "$HERE"; then
+        echo "pass"
+    else
+        echo "fail: file should not have lexed"
+        return 1
+    fi
+}
+
+case $PART in
+    count)
+        echo 3
+        ;;
+    all)
+        "$0" 1
+        "$0" 2
+        "$0" 3
+        ;;
+    1)
+        for f in "$HERE"/lexer-tests1/*.jpl; do
+            test1 "$f" "$f".output
+        done
+        echo All tests pass.
+        ;;
+    2)
+        for f in "$HERE"/lexer-tests2/ok/*.jpl; do
+            test2 "$f"
+        done
+        echo All tests pass.
+        ;;
+    3)
+        for f in "$HERE"/lexer-tests2/error/*.jpl; do
+            test3 "$f"
+        done
+        echo All tests pass.
+        ;;
+    *)
+        echo "USAGE: make test-hw2 DIR=$DIR PART=$PART"
+        echo "$PART can be any of all $(seq 1 $($0 count))"
+        ;;
+esac
