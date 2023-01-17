@@ -15,21 +15,20 @@ test_ok() {
     PROG="$1"
     OUT="$2"
     printf "%s : " $(basename "$PROG")
-    make -C "$DIR" run TEST="$PROG" | tail -n+2 > "$HERE"/out.txt
+    make --silent -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
     if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null ||
        grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
         echo "fail: file should have parsed"
         return 1
     fi
     sed "\$d" "$HERE"/out.txt | jpl --pp-sexp - | sed "\$d"> "$HERE"/out.pp
-    jpl --pp-sexp "$OUT" | sed "\$d"> "$HERE"/expected.pp
-    diff -c "$HERE/out.pp" "$HERE/expected.pp" && echo pass
+    diff -c "$HERE/out.pp" "$OUT" && echo pass
 }
 
 test_fail() {
     PROG="$1"
     printf "%s : " $(basename "$PROG")
-    make -C "$DIR" run TEST="$PROG" | tail -n+2 > "$HERE"/out.txt
+    make --silent --ignore-errors -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
     if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null && \
         grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
         echo "pass"
@@ -47,55 +46,61 @@ regen() {
     sed "\$d" "$HERE"/out.txt | jpl --pp-sexp - | sed "\$d"> "$OUT"
 }
 
+forall () {
+    TESTS="$1"
+    shift
+    
+    local count=0
+    local total=0
+    for f in "$TESTS"/*.jpl; do
+        if "$@" "$f" "$f".expected; then
+            ((++count))
+        else
+            : pass
+        fi
+        ((++total))
+    done
+    echo Passed $count out of $total
+}
+
 case $PART in
     count)
         echo 5
         ;;
     all)
-        "$0" 1
-        "$0" 2
-        "$0" 3
-        "$0" 4
-        "$0" 5
+        sh "$0" 1
+        sh "$0" 2
+        sh "$0" 3
+        sh "$0" 4
+        sh "$0" 5
         ;;
     regen)
         for f in "$HERE"/ok/*.jpl; do
             regen "$f" "$f".expected
         done
-        echo Regenerated all tests.
+        echo Regenerated ok tests.
+        for f in "$HERE"/ok-fuzzer/*.jpl; do
+            regen "$f" "$f".expected
+        done
+        echo Regenerated ok-fuzzer tests.
         ;;
     1)
-        for f in "$HERE"/ok/*.jpl; do
-            test_ok "$f" "$f".expected
-        done
-        echo All tests pass.
+        forall "$HERE/ok" test_ok
         ;;
     2)
-        for f in "$HERE"/ok-fuzzer/*.jpl; do
-            test_ok "$f" "$f".expected
-        done
-        echo All tests pass.
+        forall "$HERE/ok-fuzzer" test_ok
         ;;
     3)
-        for f in "$HERE"/fail-fuzzer1/*.jpl; do
-            test_fail "$f"
-        done
-        echo All tests pass.
+        forall "$HERE/fail-fuzzer1" test_fail
         ;;
     4)
-        for f in "$HERE"/fail-fuzzer2/*.jpl; do
-            test_fail "$f"
-        done
-        echo All tests pass.
+        forall "$HERE/fail-fuzzer2" test_fail
         ;;
     5)
-        for f in "$HERE"/fail-fuzzer3/*.jpl; do
-            test_fail "$f"
-        done
-        echo All tests pass.
+        forall "$HERE/fail-fuzzer3" test_fail
         ;;
     *)
         echo "USAGE: make test-hw2 DIR=$DIR PART=$PART"
-        echo "$PART can be any of all $(seq 1 $($0 count))"
+        echo "$PART can be any of all $(seq 1 $(sh $0 count))"
         ;;
 esac
