@@ -12,26 +12,30 @@ import string
 
 JPL_EBNF_GRAMMAR = {
     "<start>": ["<cmd>"],
-    "<cmd>": ["read image <string> to <argument>", "write image <expr> to <string>", "print <string>", "show <expr>", "time <cmd>", "<stmt>"],
-    "<stmt>": ["let <lvalue> = <expr>", "assert <expr>, <string>", "return <expr>"],
-    "<expr>": ["<integer>", "<float>", "<variable>", "<fn_call>"],
+    "<cmd>": ["read image <string> to <argument>",
+              "write image <expr> to <string>",
+              "type <variable> = <type>",
+              "let <lvalue> = <expr>",
+              "assert <expr>, <string>",
+              "print <string>",
+              "show <expr>",],
+
+    "<type>": [ "int", "float", "bool", "<variable>" ],
+
+    "<expr>": ["<integer>", "<float>", "true", "false", "<variable>"],
+
+    "<argument>": ["<variable>"],
 
     "<lvalue>": ["<argument>"],
-    "<argument>": ["<variable>"],
 
     "<float>": ["<integer>+.<integer>*", ".<integer>+"],
     "<integer>": ["<digit>+"],
     "<variable>": ["<letter>(<digit><letter><var_spec_char>)*"],
-    "<fn_call>": ["<variable>(<expr_seq>)"],
     "<string>": ['"<str_char>*"'],
 
-    "<expr_seq>": ["<expr_seq_suffix>?"],
-    "<expr_seq_suffix>": ["<expr>(<comma><expr_seq_suffix>)*"],
-#    "<var_suffix>": ["<digit>", "<letter>", "_", "."],
     "<var_spec_char>": ["_", "."],
     "<digit>": fb.srange(string.digits),
     "<letter>": fb.srange(string.ascii_letters),
-    "<comma>": [", "],
     "<str_char>": [' ', '!', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^', '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~']
 }
 
@@ -40,7 +44,7 @@ JPL_GRAMMAR = fb.convert_ebnf_grammar(JPL_EBNF_GRAMMAR)
 def generate(test_num, min_test_len, max_test_len, out_dir, max_non_terminals):
     assert fb.is_valid_grammar(JPL_GRAMMAR)
 
-    seed = datetime.now()
+    seed = datetime.now().timestamp()
     print ("Seed is ", seed)
     random.seed(seed)
 
