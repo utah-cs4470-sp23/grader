@@ -8,10 +8,10 @@ test-current: test-$(CURRENT)
 count-current: count-$(CURRENT)
 
 count-hw1:
-	@ hw1/test-part $(DIR) count
+	@ sh hw1/test-part $(DIR) count
 
 count-hw2:
-	@ hw2/test-part $(DIR) count
+	@ sh hw2/test-part $(DIR) count
 
 test-hw1:
 	sh hw1/test-part $(DIR) $(PART)
