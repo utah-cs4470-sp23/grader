@@ -3,13 +3,14 @@ set -e
 
 DIR="$1"
 PART="$2"
-# From https://stackoverflow.com/questions/59895/
+# From https://stackoverflow.com/questions/29832037/how-to-get-script-directory-in-posix-sh
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
 
 test1() {
     PROG="$1"
     OUT="$2"
-    make --silent -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
+    make --silent --no-print-directory -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
     printf "%s : " $(basename "$PROG")
     diff -c "$HERE/out.txt" "$OUT" && echo pass
 }
@@ -17,12 +18,15 @@ test1() {
 test2() {
     PROG="$1"
     printf "%s : " $(basename "$PROG")
-    make --silent -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
+    make --silent --no-print-directory -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
     if grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null && \
         ! grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
         echo "pass"
     else
         echo "fail: file should have lexed"
+        echo "======= Output ======="
+        cat "$HERE"/out.txt
+        echo "======================"
         return 1
     fi
 }
@@ -30,14 +34,35 @@ test2() {
 test3() {
     PROG="$1"
     printf "%s : " $(basename "$PROG")
-    make --silent -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
+    make --silent --no-print-directory --ignore-errors -C "$DIR" run TEST="$PROG" > "$HERE"/out.txt
     if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null && \
         grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
         echo "pass"
     else
         echo "fail: file should not have lexed"
+        echo "======= Output ======="
+        cat "$HERE"/out.txt
+        echo "======================"
         return 1
     fi
+}
+
+forall () {
+    TESTS="$1"
+    shift
+    
+    count=0
+    total=0
+    for f in "$TESTS"/*.jpl; do
+        if "$@" "$f" "$f".output; then
+            count=$((count+1))
+        else
+            : pass
+        fi
+        total=$((total+1))
+    done
+    echo Passed $count out of $total
+    test "$count" -eq "$total"
 }
 
 case $PART in
@@ -50,22 +75,13 @@ case $PART in
         "$0" 3
         ;;
     1)
-        for f in "$HERE"/lexer-tests1/*.jpl; do
-            test1 "$f" "$f".output
-        done
-        echo All tests pass.
+        forall "$HERE"/lexer-tests1 test1
         ;;
     2)
-        for f in "$HERE"/lexer-tests2/*.jpl; do
-            test2 "$f"
-        done
-        echo All tests pass.
+        forall "$HERE"/lexer-tests2 test2
         ;;
     3)
-        for f in "$HERE"/lexer-tests3/*.jpl; do
-            test3 "$f"
-        done
-        echo All tests pass.
+        forall "$HERE"/lexer-tests3 test3
         ;;
     *)
         echo "USAGE: make test-hw2 DIR=$DIR PART=$PART"
