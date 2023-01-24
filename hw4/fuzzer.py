@@ -127,7 +127,7 @@ def generate(test_num, min_test_len, max_test_len, out_dir, max_non_terminals, d
 
                 content = " ".join(t.contents() for t in tokens).replace(" \n ", "\n")
         
-        with open(Path(out_dir, str(test_id) + ".jpl"), "w") as out_file:
+        with Path(out_dir, "{:03}.jpl".format(test_id + 1)).open("w") as out_file:
             out_file.write(content)
         test_id += 1
 
