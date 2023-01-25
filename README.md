@@ -48,6 +48,8 @@ first assignment, the Imagemagick tools.
 Run the auto-grader like so:
 
     make -C /autograder/repo test-current DIR=/compiler/repo PART=X
+
+Here both paths **must be absolute paths**.
     
 Here the `X` is `PART=X` is a number from 1 to however many parts your
 assignment has. If you are unsure, check the assignment description.
