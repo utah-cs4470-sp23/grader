@@ -1,6 +1,6 @@
 .PHONY: test-current test-hw1 test-hw2 count-hw1 count-hw2
 
-CURRENT=hw3
+CURRENT=hw4
 PART=all
 DIR=..
 
