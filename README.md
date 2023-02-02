@@ -64,3 +64,14 @@ Here you can choose any (released) homework assignment instead of
 `hw3`.
 
 If you see any unexpected error messages, contact the instructors.
+
+Troubleshooting
+---------------
+
+On Linux, you might get an error about the required GLIBC version. You
+may be able to fix it by running this command:
+
+    make -C /autograder/repo -B jplc OS=linux-old
+    
+This downloads a special version of the JPL compiler made for older
+(2018-era) Linux distributions.
