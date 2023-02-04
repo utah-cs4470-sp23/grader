@@ -5,8 +5,9 @@ DIR="$1"
 PART="$2"
 # From https://stackoverflow.com/questions/59895/
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+FILE_PREFIX="${HERE}/${PART}"
 
-pp () {
+pp() {
     if [ ! -z "$CI" ]; then
         make --silent --no-print-directory -C "$HERE/.." pp-gh
         ./pp-gh "$@"
@@ -19,31 +20,31 @@ test_ok() {
     PROG="$1"
     OUT="$2"
     printf "%s : " $(basename "$PROG")
-    make --silent --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" > "$HERE"/out.txt
-    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null ||
-       grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" >"$FILE_PREFIX"out.txt
+    if ! grep -c "Compilation succeeded" "$FILE_PREFIX"out.txt >/dev/null ||
+        grep -c "Compilation failed" "$FILE_PREFIX"out.txt >/dev/null; then
         echo "fail: file should have parsed"
         echo "======= Output ======="
-        cat "$HERE"/out.txt
+        cat "$FILE_PREFIX"out.txt
         echo "======================"
         return 1
     fi
-    sed "\$d" "$HERE"/out.txt > "$HERE"/out.txt2
-    pp "$HERE"/out.txt2 | sed "\$d"> "$HERE"/out.pp
-    diff -c "$HERE/out.pp" "$OUT" && echo pass
+    sed "\$d" "$FILE_PREFIX"out.txt >"$FILE_PREFIX"out.txt2
+    pp "$FILE_PREFIX"out.txt2 | sed "\$d" >"$FILE_PREFIX"out.pp
+    diff -c "$FILE_PREFIX"out.pp "$OUT" && echo pass
 }
 
 test_fail() {
     PROG="$1"
     printf "%s : " $(basename "$PROG")
-    make --silent --no-print-directory --ignore-errors -C "$DIR" run FLAGS="-p" TEST="$PROG" > "$HERE"/out.txt
-    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null && \
-        grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+    make --silent --no-print-directory --ignore-errors -C "$DIR" run FLAGS="-p" TEST="$PROG" >"$FILE_PREFIX"out.txt
+    if ! grep -c "Compilation succeeded" "$FILE_PREFIX"out.txt >/dev/null &&
+        grep -c "Compilation failed" "$FILE_PREFIX"out.txt >/dev/null; then
         echo "pass"
     else
         echo "fail: file should not have parsed"
         echo "======= Output ======="
-        cat "$HERE"/out.txt
+        cat "$FILE_PREFIX"out.txt
         echo "======================"
         return 1
     fi
@@ -53,62 +54,79 @@ regen() {
     PROG="$1"
     OUT="$2"
     printf "%s ...\n" $(basename "$PROG")
-    make --silent --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" | sed "\$d" > "$HERE"/out.txt
-    pp "$HERE/out.txt" | sed "\$d"> "$OUT"
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" | sed "\$d" >"$FILE_PREFIX"out.txt
+    pp "$FILE_PREFIX"out.txt | sed "\$d" >"$OUT"
 }
 
-forall () {
+forall() {
     TESTS="$1"
     shift
-    
+
     count=0
     total=0
     for f in "$TESTS"/*.jpl; do
         if "$@" "$f" "$f".expected; then
-            count=$((count+1))
+            count=$((count + 1))
         else
             : pass
         fi
-        total=$((total+1))
+        total=$((total + 1))
     done
     echo Passed $count out of $total
     test "$count" -eq "$total"
 }
 
 case $PART in
-    count)
-        echo 5
-        ;;
-    all)
-        sh "$0" "$1" 1
-        sh "$0" "$1" 2
-        sh "$0" "$1" 3
-        sh "$0" "$1" 4
-        sh "$0" "$1" 5
-        ;;
-    regen)
-        forall "$HERE/ok" regen
-        echo Regenerated ok tests.
-        forall "$HERE/ok-fuzzer" regen
-        echo Regenerated ok-fuzzer tests.
-        ;;
-    1)
-        forall "$HERE/ok" test_ok
-        ;;
-    2)
-        forall "$HERE/ok-fuzzer" test_ok
-        ;;
-    3)
-        forall "$HERE/fail-fuzzer1" test_fail
-        ;;
-    4)
-        forall "$HERE/fail-fuzzer2" test_fail
-        ;;
-    5)
-        forall "$HERE/fail-fuzzer3" test_fail
-        ;;
-    *)
-        echo "USAGE: make test-hw2 DIR=$DIR PART=$PART"
-        echo "$PART can be any of all $(seq 1 $(sh $0 $1 count))"
-        ;;
+count)
+    echo 5
+    ;;
+all)
+    sh "$0" "$1" 1
+    sh "$0" "$1" 2
+    sh "$0" "$1" 3
+    sh "$0" "$1" 4
+    sh "$0" "$1" 5
+    ;;
+rapidall)
+    CHILDREN=""
+    trap 'kill $CHILDREN' INT TERM
+
+    sh "$0" "$1" 1 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 2 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 3 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 4 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 5 &
+    CHILDREN="$CHILDREN $!"
+
+    wait $CHILDREN
+    ;;
+regen)
+    forall "$HERE/ok" regen
+    echo Regenerated ok tests.
+    forall "$HERE/ok-fuzzer" regen
+    echo Regenerated ok-fuzzer tests.
+    ;;
+1)
+    forall "$HERE/ok" test_ok
+    ;;
+2)
+    forall "$HERE/ok-fuzzer" test_ok
+    ;;
+3)
+    forall "$HERE/fail-fuzzer1" test_fail
+    ;;
+4)
+    forall "$HERE/fail-fuzzer2" test_fail
+    ;;
+5)
+    forall "$HERE/fail-fuzzer3" test_fail
+    ;;
+*)
+    echo "USAGE: make test-hw2 DIR=$DIR PART=$PART"
+    echo "$PART can be any of all $(seq 1 $(sh $0 $1 count))"
+    ;;
 esac

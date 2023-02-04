@@ -5,26 +5,27 @@ DIR="$1"
 PART="$2"
 # From https://stackoverflow.com/questions/29832037/how-to-get-script-directory-in-posix-sh
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+FILE_PREFIX="${HERE}/${PART}"
 
 test1() {
     PROG="$1"
     OUT="$2"
-    make --silent --no-print-directory -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$HERE"/out.txt
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$FILE_PREFIX"out.txt
     printf "%s : " $(basename "$PROG")
-    diff -c "$HERE/out.txt" "$OUT" && echo pass
+    diff -c "$FILE_PREFIX"out.txt "$OUT" && echo pass
 }
 
 test2() {
     PROG="$1"
     printf "%s : " $(basename "$PROG")
-    make --silent --no-print-directory -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$HERE"/out.txt
-    if grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null &&
-        ! grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$FILE_PREFIX"out.txt
+    if grep -c "Compilation succeeded" "$FILE_PREFIX"out.txt >/dev/null &&
+        ! grep -c "Compilation failed" "$FILE_PREFIX"out.txt >/dev/null; then
         echo "pass"
     else
         echo "fail: file should have lexed"
         echo "======= Output ======="
-        cat "$HERE"/out.txt
+        cat "$FILE_PREFIX"out.txt
         echo "======================"
         return 1
     fi
@@ -33,14 +34,14 @@ test2() {
 test3() {
     PROG="$1"
     printf "%s : " $(basename "$PROG")
-    make --silent --no-print-directory --ignore-errors -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$HERE"/out.txt
-    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null &&
-        grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+    make --silent --no-print-directory --ignore-errors -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$FILE_PREFIX"out.txt
+    if ! grep -c "Compilation succeeded" "$FILE_PREFIX"out.txt >/dev/null &&
+        grep -c "Compilation failed" "$FILE_PREFIX"out.txt >/dev/null; then
         echo "pass"
     else
         echo "fail: file should not have lexed"
         echo "======= Output ======="
-        cat "$HERE"/out.txt
+        cat "$FILE_PREFIX"out.txt
         echo "======================"
         return 1
     fi
@@ -72,6 +73,19 @@ all)
     sh $0 $1 1
     sh $0 $1 2
     sh $0 $1 3
+    ;;
+rapidall)
+    CHILDREN=""
+    trap 'kill $CHILDREN' INT TERM
+
+    sh "$0" "$1" 1 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 2 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 3 &
+    CHILDREN="$CHILDREN $!"
+
+    wait $CHILDREN
     ;;
 1)
     forall "$HERE"/lexer-tests1 test1

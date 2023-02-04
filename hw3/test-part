@@ -5,6 +5,7 @@ DIR="$1"
 PART="$2"
 # From https://stackoverflow.com/questions/59895/
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+FILE_PREFIX="${HERE}/${PART}"
 
 jpl() {
     "$HERE"/../jplc "$@"
@@ -14,30 +15,30 @@ test_ok() {
     PROG="$1"
     OUT="$2"
     printf "%s : " $(basename "$PROG")
-    make --silent --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" >"$HERE"/out.txt
-    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null ||
-        grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" >"$FILE_PREFIX"out.txt
+    if ! grep -c "Compilation succeeded" "$FILE_PREFIX"out.txt >/dev/null ||
+        grep -c "Compilation failed" "$FILE_PREFIX"out.txt >/dev/null; then
         echo "fail: file should have parsed"
         echo "======= Output ======="
-        cat "$HERE"/out.txt
+        cat "$FILE_PREFIX"out.txt
         echo "======================"
         return 1
     fi
-    sed "\$d" "$HERE"/out.txt | jpl --pp-sexp - | sed "\$d" >"$HERE"/out.pp
-    diff -c "$HERE/out.pp" "$OUT" && echo pass
+    sed "\$d" "$FILE_PREFIX"out.txt | jpl --pp-sexp - | sed "\$d" >"$FILE_PREFIX"out.pp
+    diff -c "$FILE_PREFIX"out.pp "$OUT" && echo pass
 }
 
 test_fail() {
     PROG="$1"
     printf "%s : " $(basename "$PROG")
-    make --silent --no-print-directory --ignore-errors -C "$DIR" run FLAGS="-p" TEST="$PROG" >"$HERE"/out.txt
-    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null &&
-        grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+    make --silent --no-print-directory --ignore-errors -C "$DIR" run FLAGS="-p" TEST="$PROG" >"$FILE_PREFIX"out.txt
+    if ! grep -c "Compilation succeeded" "$FILE_PREFIX"out.txt >/dev/null &&
+        grep -c "Compilation failed" "$FILE_PREFIX"out.txt >/dev/null; then
         echo "pass"
     else
         echo "fail: file should not have parsed"
         echo "======= Output ======="
-        cat "$HERE"/out.txt
+        cat "$FILE_PREFIX"out.txt
         echo "======================"
         return 1
     fi
@@ -47,8 +48,8 @@ regen() {
     PROG="$1"
     OUT="$2"
     printf "%s ...\n" $(basename "$PROG")
-    make --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" | tail -n+2 >"$HERE"/out.txt
-    sed "\$d" "$HERE"/out.txt | jpl --pp-sexp - | sed "\$d" >"$OUT"
+    make --no-print-directory -C "$DIR" run FLAGS="-p" TEST="$PROG" | tail -n+2 >"$FILE_PREFIX"out.txt
+    sed "\$d" "$FILE_PREFIX"out.txt | jpl --pp-sexp - | sed "\$d" >"$OUT"
 }
 
 forall() {
@@ -79,6 +80,23 @@ all)
     sh $0 $1 3
     sh $0 $1 4
     sh $0 $1 5
+    ;;
+rapidall)
+    CHILDREN=""
+    trap 'kill $CHILDREN' INT TERM
+
+    sh "$0" "$1" 1 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 2 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 3 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 4 &
+    CHILDREN="$CHILDREN $!"
+    sh "$0" "$1" 5 &
+    CHILDREN="$CHILDREN $!"
+
+    wait $CHILDREN
     ;;
 regen)
     for f in "$HERE"/ok/*.jpl; do

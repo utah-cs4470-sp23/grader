@@ -1,4 +1,4 @@
-.PHONY: test-current test-hw1 test-hw2 count-hw1 count-hw2
+.PHONY: test-current test-hw1 test-hw2 count-hw1 count-hw2 rapidall
 
 CURRENT=hw4
 PART=all
@@ -40,3 +40,6 @@ jplc:
 pp-gh:
 	curl -L 'https://github.com/utah-cs4470-sp23/class/releases/latest/download/pp-gh' -o ./pp-gh
 	chmod +x pp-gh
+
+rapidall: jplc
+	sh rapidall $(DIR)
