@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from pathlib import Path
 
 def go(file, split, outdir):
     s = file.read()
@@ -16,8 +17,9 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     out = Path(args.outdir)
-    out.mkdir(parents=True, exists_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
 
-    split = split.replace("\\n", "\n")
-    go(args, split, out)
+    split = args.on.replace("\\n", "\n")
+    print("Splitting on", repr(split))
+    go(args.file, split, out)
     
