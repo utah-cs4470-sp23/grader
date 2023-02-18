@@ -27,6 +27,12 @@ count-hw5:
 count-hw6:
 	@ sh hw6/test-part $(DIR) count
 
+count-hw7:
+	@ sh hw7/test-part $(DIR) count
+
+count-hw8:
+	@ sh hw8/test-part $(DIR) count
+
 test-hw1: jplc
 	sh hw1/test-part $(DIR) $(PART)
 
@@ -44,6 +50,12 @@ test-hw5: jplc
 
 test-hw6: jplc
 	sh hw6/test-part $(DIR) $(PART)
+
+test-hw7: jplc
+	sh hw7/test-part $(DIR) $(PART)
+
+test-hw8: jplc
+	sh hw8/test-part $(DIR) $(PART)
 
 jplc:
 	curl -L 'https://github.com/utah-cs4470-sp23/class/releases/latest/download/jplc-$(OS)' -o ./jplc
