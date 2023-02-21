@@ -1,0 +1,105 @@
+#!/bin/sh
+set -e
+
+DIR="$1"
+PART="$2"
+# From https://stackoverflow.com/questions/59895/
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+pp () {
+    ./jplc --pp-sexp "$@"
+}
+
+test_ok() {
+    PROG="$1"
+    OUT="$2"
+    printf "%s : " $(basename "$PROG")
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-t" TEST="$PROG" > "$HERE"/out.txt
+    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null ||
+       grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+        echo "fail: file should have typechecked"
+        echo "======= Output ======="
+        cat "$HERE"/out.txt
+        echo "======================"
+        return 1
+    fi
+    sed "\$d" "$HERE"/out.txt > "$HERE"/out.txt2
+    pp "$HERE"/out.txt2 | sed "\$d"> "$HERE"/out.pp
+    diff -c "$HERE/out.pp" "$OUT" && echo pass
+}
+
+test_fail() {
+    PROG="$1"
+    printf "%s : " $(basename "$PROG")
+    make --silent --no-print-directory --ignore-errors -C "$DIR" run FLAGS="-t" TEST="$PROG" > "$HERE"/out.txt
+    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null && \
+        grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+        echo "pass"
+    else
+        echo "fail: file should not have typechecked"
+        echo "======= Output ======="
+        cat "$HERE"/out.txt
+        echo "======================"
+        return 1
+    fi
+}
+
+regen() {
+    PROG="$1"
+    OUT="$2"
+    printf "%s ...\n" $(basename "$PROG")
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-t" TEST="$PROG" | sed "\$d" > "$HERE"/out.txt
+    pp "$HERE/out.txt" | sed "\$d"> "$OUT"
+}
+
+forall () {
+    TESTS="$1"
+    shift
+    
+    count=0
+    total=0
+    for f in "$TESTS"/*.jpl; do
+        if "$@" "$f" "$f".expected; then
+            count=$((count+1))
+        else
+            : pass
+        fi
+        total=$((total+1))
+    done
+    echo Passed $count out of $total
+    test "$count" -eq "$total"
+}
+
+case $PART in
+    count)
+        echo 4
+        ;;
+    all)
+        sh "$0" "$1" 1
+        sh "$0" "$1" 2
+        sh "$0" "$1" 3
+        sh "$0" "$1" 4
+        ;;
+    regen)
+        [ -d "$HERE/ok" ] && forall "$HERE/ok" regen
+        echo Regenerated ok tests.
+        [ -d "$HERE/ok-fuzzer" ] && forall "$HERE/ok-fuzzer" regen
+        echo Regenerated ok-fuzzer tests.
+        ;;
+    1)
+        forall "$HERE/ok" test_ok
+        ;;
+    2)
+        forall "$HERE/fail" test_fail
+        ;;
+    3)
+        forall "$HERE/ok-fuzzer" test_ok
+        ;;
+    4)
+        forall "$HERE/fail-fuzzer" test_fail
+        ;;
+    *)
+        echo "USAGE: make test-hw8 DIR=$DIR PART=$PART"
+        echo "$PART can be any of all $(seq 1 $(sh $0 $1 count))"
+        ;;
+esac
