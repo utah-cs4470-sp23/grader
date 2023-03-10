@@ -4,7 +4,25 @@ CURRENT=hw8
 PART=all
 DIR=..
 
-OS=linux
+# Some ideas from https://gist.github.com/sighingnow/deee806603ec9274fd47
+ifndef OS
+	ifeq ($(OS),Windows_NT)
+		OS ?= windows
+	else
+		UNAME_S := $(shell uname -s)
+		ifeq ($(UNAME_S),Linux)
+			GLIBC_SUBV := $(shell ldd --version | head -n1 | sed 's/.*2\.\([0-9]*\).*/\1/g')
+			ifeq ($(shell test $(VER) -ge 35; echo $$?),0)
+				OS ?= linux
+			else
+				OS ?= linux-old
+			endif
+		endif
+		ifeq ($(UNAME_S),Darwin)
+			OS ?= macos
+		endif
+	endif
+endif
 
 test-current: test-$(CURRENT)
 count-current: count-$(CURRENT)
@@ -64,3 +82,9 @@ jplc:
 pp-gh:
 	curl -L 'https://github.com/utah-cs4470-sp23/class/releases/latest/download/pp-gh' -o ./pp-gh
 	chmod +x pp-gh
+
+print-os:
+	@ echo $(OS)
+
+upgrade:
+	$(MAKE) -B jplc OS=$(OS)
