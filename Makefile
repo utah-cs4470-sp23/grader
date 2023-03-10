@@ -1,4 +1,4 @@
-.PHONY: test-current test-hw1 test-hw2 count-hw1 count-hw2
+.PHONY: test-current test-hw1 test-hw2 count-hw1 count-hw2 upgrade
 
 CURRENT=hw8
 PART=all
@@ -51,6 +51,9 @@ count-hw7:
 count-hw8:
 	@ sh hw8/test-part $(DIR) count
 
+count-hw9:
+	@ sh hw9/test-part $(DIR) count
+
 test-hw1: jplc
 	sh hw1/test-part $(DIR) $(PART)
 
@@ -75,6 +78,9 @@ test-hw7: jplc
 test-hw8: jplc
 	sh hw8/test-part $(DIR) $(PART)
 
+test-hw9:
+	sh hw9/test-part $(DIR) $(PART)
+
 jplc:
 	curl -L 'https://github.com/utah-cs4470-sp23/class/releases/latest/download/jplc-$(OS)' -o ./jplc
 	chmod +x jplc
@@ -87,4 +93,5 @@ print-os:
 	@ echo $(OS)
 
 upgrade:
+	git pull origin main
 	$(MAKE) -B jplc OS=$(OS)
