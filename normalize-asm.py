@@ -14,10 +14,13 @@ def domath(m):
     elif v > 0:
         return "- " + str(abs(v))
 
+FLOAT_RE = re.compile(r"^(const[0-9]+:\s*dq\s*[0-9]*)[\.eE].*")
+
 def normalize(line):
     if ";" in line:
         line = line.split(";", 1)[0]
     line = MATH_RE.sub(domath, line)
+    line = FLOAT_RE.sub(r"\1", line)
     line = line.strip()
     line = " ".join(line.split())
     return line
