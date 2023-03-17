@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import re
-MATH_RE = re.compile(r"([-+])\s*(\d)+\s*([-+])\s*(\d)+")
+MATH_RE = re.compile(r"([-+])\s*(\d+)\s*([-+])\s*(\d+)")
 
 def domath(m):
     op1, lhs, op2, rhs = m.group(1, 2, 3, 4)
@@ -12,15 +12,21 @@ def domath(m):
     elif v == 0:
         return ""
     elif v > 0:
-        return "- " + str(abs(v))
+        return "+ " + str(abs(v))
+    
+def redo_float(m):
+    name, val, rest = m.group(1, 2, 3)
+    if "." in val or "e" in val or "E" in val:
+        val = str(float(val))
+    return name + val + rest
 
-FLOAT_RE = re.compile(r"^(const[0-9]+:\s*dq\s*[0-9]*)[\.eE].*")
+FLOAT_RE = re.compile(r"^(const[0-9]+:\s*dq\s*)([0-9\.eE+-]+)(.*)$")
 
 def normalize(line):
     if ";" in line:
         line = line.split(";", 1)[0]
     line = MATH_RE.sub(domath, line)
-    line = FLOAT_RE.sub(r"\1", line)
+    line = FLOAT_RE.sub(redo_float, line)
     line = line.strip()
     line = " ".join(line.split())
     return line
