@@ -1,18 +1,34 @@
 #!/usr/bin/env python3
 import re
-MATH_RE = re.compile(r"([-+])\s*(\d+)\s*([-+])\s*(\d+)")
+ADDRESS_RE = re.compile(r"\[([a-z][a-z0-9]+)([- +0-9]*)\]")
 
 def domath(m):
-    op1, lhs, op2, rhs = m.group(1, 2, 3, 4)
-    v1 = -int(lhs) if op1 == "-" else int(lhs)
-    v2 = -int(rhs) if op2 == "-" else int(rhs)
-    v = v1 + v2
-    if v < 0:
-        return "- " + str(abs(v))
-    elif v == 0:
-        return ""
-    elif v > 0:
-        return "+ " + str(abs(v))
+    reg, rest = m.group(1, 2)
+    ctr = 0
+    cur_num = ""
+    for char in rest:
+        if char in "+-":
+            val = cur_num.replace(" ", "")
+            if not val:
+                cur_num = char
+            elif val in "-+":
+                cur_num = {
+                    "++": "+", "--": "+", "+-": "-", "-+": "-",
+                }[val + char]
+            else:
+                ctr += int(val)
+                cur_num = char
+        else:
+            cur_num += char
+    val = cur_num.replace(" ", "")
+    if val: ctr += int(val)
+
+    if ctr == 0:
+        return "[" + reg + "]"
+    elif ctr < 0:
+        return "[" + reg + " - " + str(abs(ctr)) + "]"
+    elif ctr > 0:
+        return "[" + reg + " + " + str(abs(ctr)) + "]"
     
 def redo_float(m):
     name, val, rest = m.group(1, 2, 3)
@@ -25,7 +41,7 @@ FLOAT_RE = re.compile(r"^(const[0-9]+:\s*dq\s*)([0-9\.eE+-]+)(.*)$")
 def normalize(line):
     if ";" in line:
         line = line.split(";", 1)[0]
-    line = MATH_RE.sub(domath, line)
+    line = ADDRESS_RE.sub(domath, line)
     line = FLOAT_RE.sub(redo_float, line)
     line = line.strip()
     line = " ".join(line.split())

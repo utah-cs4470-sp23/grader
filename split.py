@@ -6,7 +6,7 @@ def go(file, split, outdir):
     s = file.read()
     parts = s.split(split)
     for i, part in enumerate(parts):
-        with open(outdir / f"{i:03}.jpl", "w") as f:
+        with open(outdir / f"{i+1:03}.jpl", "w") as f:
             f.write(part + split)
 
 if __name__ == "__main__":
