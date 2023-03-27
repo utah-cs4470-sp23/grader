@@ -25,8 +25,8 @@ extern _to_float
 
 section .data
 const0: dq 10
-const1: dq 0
-const2: db `non-positive loop bound`, 0
+const1: db `non-positive loop bound`, 0
+const2: dq 0
 const3: dq 1
 const4: db `(IntType)`, 0
 
@@ -43,15 +43,22 @@ _jpl_main:
 	mov rax, [rel const0] ; 10
 	push rax
 	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump1
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const1] ; non-positive loop bound
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump1:
 	; Computing bound for i
-	mov rax, [rel const1] ; 0
+	mov rax, [rel const2] ; 0
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump1
-	lea rdi, [rel const2] ; non-positive loop bound
+	jg .jump2
+	lea rdi, [rel const1] ; non-positive loop bound
 	call _fail_assertion
-.jump1:
+.jump2:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 16], rax ; Move to pre-allocated space
@@ -61,19 +68,19 @@ _jpl_main:
 	; Initialize i to 0
 	mov rax, 0
 	push rax
-.jump2: ; Begin body of loop
+.jump3: ; Begin body of loop
 	; Compare j to its bound
 	mov rax, [rsp + 8]
 	cmp rax, [rsp + 24]
-	jl .jump4 ; If j >= bound, ...
+	jl .jump5 ; If j >= bound, ...
 	mov qword [rsp + 8], 0 ; j = 0
 	add qword [rsp + 0], 1 ; i++
-.jump4:
+.jump5:
 	; Compare i to its bound
 	mov rax, [rsp + 0]
 	cmp rax, [rsp + 16]
-	jge .jump3 ; If i >= bound, break
-.jump5:
+	jge .jump4 ; If i >= bound, break
+.jump6:
 	; Compute loop body
 	mov rax, [rel const3] ; 1
 	push rax
@@ -81,8 +88,8 @@ _jpl_main:
 	add [rsp + 32], rax ; Add loop body to sum
 	; Increment j
 	add qword [rsp + 8], 1
-	jmp .jump2
-.jump3: ; End body of loop
+	jmp .jump3
+.jump4: ; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; Free all loop bounds

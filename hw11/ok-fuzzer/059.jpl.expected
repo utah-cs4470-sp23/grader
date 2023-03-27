@@ -37,7 +37,8 @@ const9: dq 90.28
 const10: db `non-positive loop bound`, 0
 const11: dq 87.7
 const12: dq 760
-const13: dq 57
+const13: db `overflow computing array size`, 0
+const14: dq 57
 
 section .text
 jpl_main:
@@ -142,7 +143,7 @@ _jpl_main:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
-	shl rax, 3
+	imul rax, 8
 	add rax, [rsp + 16]
 	add rsp, 8
 	add rsp, 16
@@ -303,7 +304,7 @@ _jpl_main:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
-	shl rax, 3
+	imul rax, 8
 	add rax, [rsp + 16]
 	add rsp, 8
 	add rsp, 16
@@ -446,7 +447,22 @@ _jpl_main:
 	mov rax, [rel const12] ; 760
 	push rax
 	mov rax, [rsp]
-	mov rdi, 18240
+	cmp rax, 0
+	jg .jump24
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const10] ; non-positive loop bound
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump24:
+	; Computing total size of heap memory to allocate
+	mov rdi, 24 ; sizeof {{float,float,float,float}[,]}
+	imul rdi, [rsp + 0 + 0] ; multiply by 760
+	jno .jump25
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const13] ; overflow computing array size
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump25:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -454,12 +470,12 @@ _jpl_main:
 	; Initialize m to 0
 	mov rax, 0
 	push rax
-.jump24: ; Begin body of loop
+.jump26: ; Begin body of loop
 	; Compare m to its bound
 	mov rax, [rsp + 0]
 	cmp rax, [rsp + 8]
-	jge .jump25 ; If m >= bound, break
-.jump26:
+	jge .jump27 ; If m >= bound, break
+.jump28:
 	; Compute loop body
 	sub rsp, 24
 	; Moving 24 bytes from rbp - 80 to rsp
@@ -494,8 +510,8 @@ _jpl_main:
 	add rsp, 24
 	; Increment m
 	add qword [rsp + 0], 1
-	jmp .jump24
-.jump25: ; End body of loop
+	jmp .jump26
+.jump27: ; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; array left on stack
@@ -505,15 +521,15 @@ _jpl_main:
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump27
+	jge .jump29
 	lea rdi, [rel const5] ; negative array index
 	call _fail_assertion
-.jump27:
+.jump29:
 	cmp rax, [rsp + 8]
-	jl .jump28
+	jl .jump30
 	lea rdi, [rel const6] ; index too large
 	call _fail_assertion
-.jump28:
+.jump30:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -541,7 +557,7 @@ _jpl_main:
 		mov [rsp + 8], r10
 		mov r10, [rbp - 104 + 0]
 		mov [rsp + 0], r10
-	mov rax, [rel const13] ; 57
+	mov rax, [rel const14] ; 57
 	push rax
 	add rsp, 192 ; Local variables
 	pop r12

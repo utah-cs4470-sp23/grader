@@ -25,8 +25,10 @@ extern _to_float
 
 section .data
 const0: dq 10
-const1: dq 0
-const2: db `(ArrayType (IntType) 1)`, 0
+const1: db `non-positive loop bound`, 0
+const2: db `overflow computing array size`, 0
+const3: dq 0
+const4: db `(ArrayType (IntType) 1)`, 0
 
 section .text
 jpl_main:
@@ -42,26 +44,37 @@ _jpl_main:
 	mov rax, [rel const0] ; 10
 	push rax
 	mov rax, [rsp]
-	mov rdi, 80
+	cmp rax, 0
+	jg .jump1
+	lea rdi, [rel const1] ; non-positive loop bound
+	call _fail_assertion
+.jump1:
+	; Computing total size of heap memory to allocate
+	mov rdi, 8 ; sizeof int
+	imul rdi, [rsp + 0 + 0] ; multiply by 10
+	jno .jump2
+	lea rdi, [rel const2] ; overflow computing array size
+	call _fail_assertion
+.jump2:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize i to 0
 	mov rax, 0
 	push rax
-.jump1: ; Begin body of loop
+.jump3: ; Begin body of loop
 	; Compare i to its bound
 	mov rax, [rsp + 0]
 	cmp rax, [rsp + 8]
-	jge .jump2 ; If i >= bound, break
-.jump3:
+	jge .jump4 ; If i >= bound, break
+.jump5:
 	; Compute loop body
-	mov rax, [rel const1] ; 0
+	mov rax, [rel const3] ; 0
 	push rax
 	; Index to store in
 	mov rax, 0
 	imul rax, [rsp + 16] ; No overflow if indices in bounds
 	add rax, [rsp + 8]
-	shl rax, 3
+	imul rax, 8
 	add rax, [rsp + 24]
 	; Move body (8 bytes) to index
 	; Moving 8 bytes from rsp to rax
@@ -70,12 +83,12 @@ _jpl_main:
 	add rsp, 8
 	; Increment i
 	add qword [rsp + 0], 1
-	jmp .jump1
-.jump2: ; End body of loop
+	jmp .jump3
+.jump4: ; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; array left on stack
-	lea rdi, [rel const2] ; (ArrayType (IntType) 1)
+	lea rdi, [rel const4] ; (ArrayType (IntType) 1)
 	lea rsi, [rsp]
 	call _show
 	add rsp, 16

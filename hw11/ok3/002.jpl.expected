@@ -25,8 +25,9 @@ extern _to_float
 
 section .data
 const0: dq 10
-const1: dq 1.0
-const2: db `(FloatType)`, 0
+const1: db `non-positive loop bound`, 0
+const2: dq 1.0
+const3: db `(FloatType)`, 0
 
 section .text
 jpl_main:
@@ -41,20 +42,27 @@ _jpl_main:
 	mov rax, [rel const0] ; 10
 	push rax
 	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump1
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const1] ; non-positive loop bound
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump1:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize i to 0
 	mov rax, 0
 	push rax
-.jump1: ; Begin body of loop
+.jump2: ; Begin body of loop
 	; Compare i to its bound
 	mov rax, [rsp + 0]
 	cmp rax, [rsp + 8]
-	jge .jump2 ; If i >= bound, break
-.jump3:
+	jge .jump3 ; If i >= bound, break
+.jump4:
 	; Compute loop body
-	mov rax, [rel const1] ; 1.0
+	mov rax, [rel const2] ; 1.0
 	push rax
 	movsd xmm0, [rsp]
 	add rsp, 8
@@ -63,14 +71,14 @@ _jpl_main:
 	movsd [rsp + 16], xmm0 ; Save sum
 	; Increment i
 	add qword [rsp + 0], 1
-	jmp .jump1
-.jump2: ; End body of loop
+	jmp .jump2
+.jump3: ; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; Free all loop bounds
 	add rsp, 8
 	; sum left on stack
-	lea rdi, [rel const2] ; (FloatType)
+	lea rdi, [rel const3] ; (FloatType)
 	lea rsi, [rsp]
 	call _show
 	add rsp, 8
