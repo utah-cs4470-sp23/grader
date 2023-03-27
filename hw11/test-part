@@ -1,0 +1,107 @@
+#!/bin/sh
+set -e
+
+DIR="$1"
+PART="$2"
+# From https://stackoverflow.com/questions/59895/
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+ppasm () {
+    python3 "$HERE/../normalize-asm.py"
+}
+
+test_ok() {
+    PROG="$1"
+    OUT="$2"
+    printf "%s : " $(basename "$PROG")
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-s" TEST="$PROG" > "$HERE"/out.txt
+    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null ||
+       grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+        echo "fail: file should have assembled"
+        echo "======= Output ======="
+        cat "$HERE"/out.txt
+        echo "======================"
+        return 1
+    fi
+    sed "\$d" "$HERE"/out.txt | ppasm > "$HERE"/out.pp
+    cat "$OUT" | ppasm > "$HERE"/expected.pp
+    diff -c "$HERE/out.pp" "$HERE"/expected.pp && echo pass
+}
+
+regen() {
+    PROG="$1"
+    OUT="$2"
+    printf "%s ...\n" $(basename "$PROG")
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-s" TEST="$PROG" > "$HERE"/out.txt
+    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null ||
+       grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+        echo "fail: file should have assembled"
+        echo "======= Output ======="
+        cat "$HERE"/out.txt
+        echo "======================"
+        return 1
+    fi
+    sed "\$d" "$HERE"/out.txt > "$OUT"
+}
+
+forall () {
+    TESTS="$1"
+    shift
+    
+    count=0
+    total=0
+    for f in "$TESTS"/*.jpl; do
+        if "$@" "$f" "$f".expected; then
+            count=$((count+1))
+        else
+            : pass
+        fi
+        total=$((total+1))
+    done
+    echo Passed $count out of $total
+    test "$count" -eq "$total"
+}
+
+case $PART in
+    count)
+        echo 6
+        ;;
+    all)
+        sh "$0" "$1" 1
+        sh "$0" "$1" 2
+        sh "$0" "$1" 3
+        sh "$0" "$1" 4
+        sh "$0" "$1" 5
+        sh "$0" "$1" 6
+        ;;
+    regen)
+        [ -d "$HERE/ok1" ] && forall "$HERE/ok1" regen; echo Regenerated ok1 tests.
+        [ -d "$HERE/ok2" ] && forall "$HERE/ok2" regen; echo Regenerated ok2 tests.
+        [ -d "$HERE/ok3" ] && forall "$HERE/ok3" regen; echo Regenerated ok3 tests.
+        [ -d "$HERE/ok4" ] && forall "$HERE/ok4" regen; echo Regenerated ok4 tests.
+        [ -d "$HERE/ok-fuzzer" ] && forall "$HERE/ok-fuzzer" regen; echo Regenerated ok-fuzzer tests.
+        [ -d "$HERE/extra" ] && forall "$HERE/extra" regen; echo Regenerated extra tests.
+        ;;
+    1)
+        forall "$HERE/ok1" test_ok
+        ;;
+    2)
+        forall "$HERE/ok2" test_ok
+        ;;
+    3)
+        forall "$HERE/ok3" test_ok
+        ;;
+    4)
+        forall "$HERE/ok4" test_ok
+        ;;
+    5)
+        forall "$HERE/ok-fuzzer" test_ok
+        ;;
+    6)
+        forall "$HERE/extra" test_ok
+        ;;
+    *)
+        echo "USAGE: make test-hw11 DIR=$DIR PART=$PART"
+        echo "$PART can be any of all $(seq 1 $(sh $0 $1 count))"
+        ;;
+esac
