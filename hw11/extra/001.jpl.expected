@@ -101,17 +101,12 @@ _a:
 	mov rax, 0
 	push rax
 .jump3: ; Begin body of loop
-	; Compare b to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump4 ; If b >= bound, break
-.jump5:
 	; Compute loop body
 	mov rax, [rel const2] ; True
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump6
+	je .jump4
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for e
@@ -121,12 +116,12 @@ _a:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump8
+	jg .jump6
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump8:
+.jump6:
 	; Computing bound for d
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 24 to rsp
@@ -134,10 +129,10 @@ _a:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump9
+	jg .jump7
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump9:
+.jump7:
 	; Computing bound for c
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 24 to rsp
@@ -145,35 +140,35 @@ _a:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump10
+	jg .jump8
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump10:
+.jump8:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by b
+	jno .jump9
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const1] ; overflow computing array size
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump9:
+	imul rdi, [rsp + 0 + 8] ; multiply by b
+	jno .jump10
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const1] ; overflow computing array size
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump10:
+	imul rdi, [rsp + 0 + 16] ; multiply by argnum
 	jno .jump11
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
 .jump11:
-	imul rdi, [rsp + 0 + 8] ; multiply by b
-	jno .jump12
-	sub rsp, 8 ; Align stack
-	lea rdi, [rel const1] ; overflow computing array size
-	call _fail_assertion
-	add rsp, 8 ; Remove alignment
-.jump12:
-	imul rdi, [rsp + 0 + 16] ; multiply by argnum
-	jno .jump13
-	sub rsp, 8 ; Align stack
-	lea rdi, [rel const1] ; overflow computing array size
-	call _fail_assertion
-	add rsp, 8 ; Remove alignment
-.jump13:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -187,26 +182,7 @@ _a:
 	; Initialize c to 0
 	mov rax, 0
 	push rax
-.jump14: ; Begin body of loop
-	; Compare e to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump16 ; If e >= bound, ...
-	mov qword [rsp + 16], 0 ; e = 0
-	add qword [rsp + 8], 1 ; d++
-.jump16:
-	; Compare d to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump17 ; If d >= bound, ...
-	mov qword [rsp + 8], 0 ; d = 0
-	add qword [rsp + 0], 1 ; c++
-.jump17:
-	; Compare c to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump15 ; If c >= bound, break
-.jump18:
+.jump12: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from r12 - -16 to rsp
@@ -229,13 +205,28 @@ _a:
 	add rsp, 8
 	; Increment e
 	add qword [rsp + 16], 1
-	jmp .jump14
-.jump15: ; End body of loop
+	; Compare e to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump12 ; If e < bound, next iter
+	mov qword [rsp + 16], 0 ; e = 0
+	add qword [rsp + 8], 1 ; d++
+	; Compare d to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump12 ; If d < bound, next iter
+	mov qword [rsp + 8], 0 ; d = 0
+	add qword [rsp + 0], 1 ; c++
+	; Compare c to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump12 ; If c < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-	jmp .jump7
-.jump6:
+	jmp .jump5
+.jump4:
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for e
@@ -243,55 +234,55 @@ _a:
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump19
+	jg .jump16
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump19:
+.jump16:
 	; Computing bound for d
 	mov rax, [rel const4] ; 919
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump20
+	jg .jump17
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump20:
+.jump17:
 	; Computing bound for c
 	mov rax, [rel const5] ; 151
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump21
+	jg .jump18
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump21:
+.jump18:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by 151
-	jno .jump22
+	jno .jump19
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump22:
+.jump19:
 	imul rdi, [rsp + 0 + 8] ; multiply by 919
-	jno .jump23
+	jno .jump20
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump23:
+.jump20:
 	imul rdi, [rsp + 0 + 16] ; multiply by 523
-	jno .jump24
+	jno .jump21
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump24:
+.jump21:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -305,26 +296,7 @@ _a:
 	; Initialize c to 0
 	mov rax, 0
 	push rax
-.jump25: ; Begin body of loop
-	; Compare e to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump27 ; If e >= bound, ...
-	mov qword [rsp + 16], 0 ; e = 0
-	add qword [rsp + 8], 1 ; d++
-.jump27:
-	; Compare d to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump28 ; If d >= bound, ...
-	mov qword [rsp + 8], 0 ; d = 0
-	add qword [rsp + 0], 1 ; c++
-.jump28:
-	; Compare c to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump26 ; If c >= bound, break
-.jump29:
+.jump22: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const6] ; 197
 	push rax
@@ -345,12 +317,27 @@ _a:
 	add rsp, 8
 	; Increment e
 	add qword [rsp + 16], 1
-	jmp .jump25
-.jump26: ; End body of loop
+	; Compare e to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump22 ; If e < bound, next iter
+	mov qword [rsp + 16], 0 ; e = 0
+	add qword [rsp + 8], 1 ; d++
+	; Compare d to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump22 ; If d < bound, next iter
+	mov qword [rsp + 8], 0 ; d = 0
+	add qword [rsp + 0], 1 ; c++
+	; Compare c to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump22 ; If c < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-.jump7:
+.jump5:
 	; Index to store in
 	mov rax, 0
 	imul rax, [rsp + 40] ; No overflow if indices in bounds
@@ -370,8 +357,11 @@ _a:
 	add rsp, 32
 	; Increment b
 	add qword [rsp + 0], 1
-	jmp .jump3
-.jump4: ; End body of loop
+	; Compare b to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump3 ; If b < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; array left on stack
@@ -388,19 +378,19 @@ _a:
 	push rax
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump30
+	jge .jump27
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump30:
+.jump27:
 	cmp rax, [rsp + 8]
-	jl .jump31
+	jl .jump28
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump31:
+.jump28:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -422,10 +412,10 @@ _a:
 	push rax
 	pop rax
 	cmp rax, 0
-	jne .jump32
+	jne .jump29
 	lea rdi, [rel const10] ; f
 	call _fail_assertion
-.jump32:
+.jump29:
 	mov rax, [rel const2] ; True
 	push rax
 	pop rax
@@ -436,12 +426,12 @@ _a:
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump33
+	je .jump30
 	mov rax, [rel const2] ; True
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump35
+	je .jump32
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for g
@@ -449,10 +439,10 @@ _a:
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump37
+	jg .jump34
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump37:
+.jump34:
 	; Computing bound for f
 	; Allocating 8 bytes for the sum
 	sub rsp, 8
@@ -463,22 +453,17 @@ _a:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump38
+	jg .jump35
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump38:
+.jump35:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize f to 0
 	mov rax, 0
 	push rax
-.jump39: ; Begin body of loop
-	; Compare f to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump40 ; If f >= bound, break
-.jump41:
+.jump36: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 72 to rsp
@@ -488,8 +473,11 @@ _a:
 	add [rsp + 16], rax ; Add loop body to sum
 	; Increment f
 	add qword [rsp + 0], 1
-	jmp .jump39
-.jump40: ; End body of loop
+	; Compare f to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump36 ; If f < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; Free all loop bounds
@@ -497,28 +485,28 @@ _a:
 	; sum left on stack
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump42
+	jg .jump38
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump42:
+.jump38:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof float
 imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
-	jno .jump43
+	jno .jump39
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump43:
+.jump39:
 	imul rdi, [rsp + 0 + 8] ; multiply by 135
-	jno .jump44
+	jno .jump40
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump44:
+.jump40:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -529,19 +517,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	; Initialize f to 0
 	mov rax, 0
 	push rax
-.jump45: ; Begin body of loop
-	; Compare g to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump47 ; If g >= bound, ...
-	mov qword [rsp + 8], 0 ; g = 0
-	add qword [rsp + 0], 1 ; f++
-.jump47:
-	; Compare f to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump46 ; If f >= bound, break
-.jump48:
+.jump41: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8 ; Align stack
 	call _a
@@ -563,13 +539,22 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	add rsp, 8
 	; Increment g
 	add qword [rsp + 8], 1
-	jmp .jump45
-.jump46: ; End body of loop
+	; Compare g to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump41 ; If g < bound, next iter
+	mov qword [rsp + 8], 0 ; g = 0
+	add qword [rsp + 0], 1 ; f++
+	; Compare f to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump41 ; If f < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
-	jmp .jump36
-.jump35:
+	jmp .jump33
+.jump32:
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for g
@@ -582,10 +567,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump49
+	jg .jump44
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump49:
+.jump44:
 	; Computing bound for f
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 32 to rsp
@@ -593,28 +578,28 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump50
+	jg .jump45
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump50:
+.jump45:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof float
 	imul rdi, [rsp + 0 + 0] ; multiply by c
-	jno .jump51
+	jno .jump46
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump51:
+.jump46:
 	imul rdi, [rsp + 0 + 8] ; multiply by (- d)
-	jno .jump52
+	jno .jump47
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump52:
+.jump47:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -625,19 +610,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	; Initialize f to 0
 	mov rax, 0
 	push rax
-.jump53: ; Begin body of loop
-	; Compare g to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump55 ; If g >= bound, ...
-	mov qword [rsp + 8], 0 ; g = 0
-	add qword [rsp + 0], 1 ; f++
-.jump55:
-	; Compare f to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump54 ; If f >= bound, break
-.jump56:
+.jump48: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8 ; Align stack
 	call _a
@@ -664,14 +637,23 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	add rsp, 8
 	; Increment g
 	add qword [rsp + 8], 1
-	jmp .jump53
-.jump54: ; End body of loop
+	; Compare g to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump48 ; If g < bound, next iter
+	mov qword [rsp + 8], 0 ; g = 0
+	add qword [rsp + 0], 1 ; f++
+	; Compare f to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump48 ; If f < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
-.jump36:
-	jmp .jump34
 .jump33:
+	jmp .jump31
+.jump30:
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for g
@@ -681,10 +663,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump57
+	jg .jump51
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump57:
+.jump51:
 	; Computing bound for f
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 24 to rsp
@@ -702,13 +684,13 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump58
+	je .jump52
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 24 to rsp
 		mov r10, [rbp - 24 + 0]
 		mov [rsp + 0], r10
-	jmp .jump59
-.jump58:
+	jmp .jump53
+.jump52:
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 24 to rsp
 		mov r10, [rbp - 24 + 0]
@@ -716,31 +698,31 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	pop rax
 	neg rax
 	push rax
-.jump59:
+.jump53:
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump60
+	jg .jump54
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump60:
+.jump54:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof float
 	imul rdi, [rsp + 0 + 0] ; multiply by (if (d != d) then d else (- d))
-	jno .jump61
+	jno .jump55
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump61:
+.jump55:
 	imul rdi, [rsp + 0 + 8] ; multiply by c
-	jno .jump62
+	jno .jump56
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump62:
+.jump56:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -751,25 +733,13 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	; Initialize f to 0
 	mov rax, 0
 	push rax
-.jump63: ; Begin body of loop
-	; Compare g to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump65 ; If g >= bound, ...
-	mov qword [rsp + 8], 0 ; g = 0
-	add qword [rsp + 0], 1 ; f++
-.jump65:
-	; Compare f to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump64 ; If f >= bound, break
-.jump66:
+.jump57: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump67
+	je .jump58
 	sub rsp, 8 ; Align stack
 	call _a
 	sub rsp, 8
@@ -780,24 +750,24 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	add rsp, 8 ; Remove alignment
 	sub rsp, 8
 	movsd [rsp], xmm0
-	jmp .jump68
-.jump67:
+	jmp .jump59
+.jump58:
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump69
+	je .jump60
 	sub rsp, 8 ; Align stack
 	call _a
 	add rsp, 8 ; Remove alignment
 	sub rsp, 8
 	movsd [rsp], xmm0
-	jmp .jump70
-.jump69:
+	jmp .jump61
+.jump60:
 	mov rax, [rel const13] ; 9.98
 	push rax
-.jump70:
-.jump68:
+.jump61:
+.jump59:
 	; Index to store in
 	mov rax, 0
 	imul rax, [rsp + 24] ; No overflow if indices in bounds
@@ -813,12 +783,21 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	add rsp, 8
 	; Increment g
 	add qword [rsp + 8], 1
-	jmp .jump63
-.jump64: ; End body of loop
+	; Compare g to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump57 ; If g < bound, next iter
+	mov qword [rsp + 8], 0 ; g = 0
+	add qword [rsp + 0], 1 ; f++
+	; Compare f to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump57 ; If f < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
-.jump34:
+.jump31:
 	sub rsp, 8
 	; Moving 8 bytes from r12 - -16 to rsp
 		mov r10, [r12 - -16 + 0]
@@ -830,28 +809,23 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump71
+	jg .jump64
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump71:
+.jump64:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by 874
-	jno .jump72
+	jno .jump65
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump72:
+.jump65:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize f to 0
 	mov rax, 0
 	push rax
-.jump73: ; Begin body of loop
-	; Compare f to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump74 ; If f >= bound, break
-.jump75:
+.jump66: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const15] ; 500
 	push rax
@@ -868,8 +842,11 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	add rsp, 8
 	; Increment f
 	add qword [rsp + 0], 1
-	jmp .jump73
-.jump74: ; End body of loop
+	; Compare f to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump66 ; If f < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; array left on stack
@@ -879,19 +856,19 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump76
+	jge .jump68
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump76:
+.jump68:
 	cmp rax, [rsp + 8]
-	jl .jump77
+	jl .jump69
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump77:
+.jump69:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -910,44 +887,44 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	pop rax
 	pop r10
 	cmp r10, 0
-	jne .jump78
+	jne .jump70
 	lea rdi, [rel const16] ; mod by zero
 	call _fail_assertion
-.jump78:
+.jump70:
 	cqo
 	idiv r10
 	mov rax, rdx
 	push rax
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump79
+	jge .jump71
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump79:
+.jump71:
 	cmp rax, [rsp + 16]
-	jl .jump80
+	jl .jump72
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump80:
+.jump72:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump81
+	jge .jump73
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump81:
+.jump73:
 	cmp rax, [rsp + 24]
-	jl .jump82
+	jl .jump74
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump82:
+.jump74:
 	mov rax, 0
 	imul rax, [rsp + 16] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -997,10 +974,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump83
+	jg .jump75
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump83:
+.jump75:
 	; Computing bound for h
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 32 to rsp
@@ -1008,12 +985,12 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump84
+	jg .jump76
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump84:
+.jump76:
 	; Computing bound for g
 	sub rsp, 8
 	; Moving 8 bytes from r12 - -16 to rsp
@@ -1027,10 +1004,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump85
+	jg .jump77
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump85:
+.jump77:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 24], rax ; Move to pre-allocated space
@@ -1043,26 +1020,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	; Initialize g to 0
 	mov rax, 0
 	push rax
-.jump86: ; Begin body of loop
-	; Compare i to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump88 ; If i >= bound, ...
-	mov qword [rsp + 16], 0 ; i = 0
-	add qword [rsp + 8], 1 ; h++
-.jump88:
-	; Compare h to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump89 ; If h >= bound, ...
-	mov qword [rsp + 8], 0 ; h = 0
-	add qword [rsp + 0], 1 ; g++
-.jump89:
-	; Compare g to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump87 ; If g >= bound, break
-.jump90:
+.jump78: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8 ; Align stack
 	sub rsp, 8
@@ -1076,13 +1034,27 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[f : c] f)
 	movsd [rsp], xmm0
 	movsd xmm0, [rsp]
 	add rsp, 8
-	movsd xmm1, [rsp + 48] ; Load sum
-	addsd xmm0, xmm1 ; Add loop body
+	addsd xmm0, [rsp + 48] ; Load sum
 	movsd [rsp + 48], xmm0 ; Save sum
 	; Increment i
 	add qword [rsp + 16], 1
-	jmp .jump86
-.jump87: ; End body of loop
+	; Compare i to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump78 ; If i < bound, next iter
+	mov qword [rsp + 16], 0 ; i = 0
+	add qword [rsp + 8], 1 ; h++
+	; Compare h to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump78 ; If h < bound, next iter
+	mov qword [rsp + 8], 0 ; h = 0
+	add qword [rsp + 0], 1 ; g++
+	; Compare g to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump78 ; If g < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; Free all loop bounds
@@ -1124,10 +1096,10 @@ _p:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump213
+	jg .jump192
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump213:
+.jump192:
 	; Computing bound for x
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 112 to rsp
@@ -1135,12 +1107,12 @@ _p:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump214
+	jg .jump193
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump214:
+.jump193:
 	; Computing bound for w
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -32 to rsp
@@ -1148,27 +1120,27 @@ _p:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump215
+	jg .jump194
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump215:
+.jump194:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by s
-	jno .jump216
+	jno .jump195
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump216:
+.jump195:
 	imul rdi, [rsp + 0 + 8] ; multiply by m
-	jno .jump217
+	jno .jump196
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump217:
+.jump196:
 	imul rdi, [rsp + 0 + 16] ; multiply by u
-	jno .jump218
+	jno .jump197
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump218:
+.jump197:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize y to 0
@@ -1180,26 +1152,7 @@ _p:
 	; Initialize w to 0
 	mov rax, 0
 	push rax
-.jump219: ; Begin body of loop
-	; Compare y to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump221 ; If y >= bound, ...
-	mov qword [rsp + 16], 0 ; y = 0
-	add qword [rsp + 8], 1 ; x++
-.jump221:
-	; Compare x to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump222 ; If x >= bound, ...
-	mov qword [rsp + 8], 0 ; x = 0
-	add qword [rsp + 0], 1 ; w++
-.jump222:
-	; Compare w to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump220 ; If w >= bound, break
-.jump223:
+.jump198: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 48 to rsp
@@ -1222,8 +1175,23 @@ _p:
 	add rsp, 8
 	; Increment y
 	add qword [rsp + 16], 1
-	jmp .jump219
-.jump220: ; End body of loop
+	; Compare y to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump198 ; If y < bound, next iter
+	mov qword [rsp + 16], 0 ; y = 0
+	add qword [rsp + 8], 1 ; x++
+	; Compare x to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump198 ; If x < bound, next iter
+	mov qword [rsp + 8], 0 ; x = 0
+	add qword [rsp + 0], 1 ; w++
+	; Compare w to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump198 ; If w < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
@@ -1276,11 +1244,11 @@ _q:
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump224
+	je .jump202
 	mov rax, [rel const12] ; False
 	push rax
-	jmp .jump225
-.jump224:
+	jmp .jump203
+.jump202:
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 24 to rsp
 		mov r10, [rbp - 24 + 0]
@@ -1295,10 +1263,10 @@ _q:
 	setl al
 	and rax, 1
 	push rax
-.jump225:
+.jump203:
 	pop rax
 	cmp rax, 0
-	je .jump226
+	je .jump204
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for x
@@ -1306,12 +1274,12 @@ _q:
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump228
+	jg .jump206
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump228:
+.jump206:
 	; Computing bound for w
 	sub rsp, 8
 	; Moving 8 bytes from r12 - -16 to rsp
@@ -1319,10 +1287,10 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump229
+	jg .jump207
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump229:
+.jump207:
 	; Computing bound for v
 	sub rsp, 24
 	; Moving 24 bytes from r12 - 88 to rsp
@@ -1342,34 +1310,34 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump230
+	jge .jump208
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump230:
+.jump208:
 	cmp rax, [rsp + 16]
-	jl .jump231
+	jl .jump209
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump231:
+.jump209:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump232
+	jge .jump210
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump232:
+.jump210:
 	cmp rax, [rsp + 24]
-	jl .jump233
+	jl .jump211
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump233:
+.jump211:
 	mov rax, 0
 	imul rax, [rsp + 16] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -1386,35 +1354,35 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump234
+	jg .jump212
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump234:
+.jump212:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by h[n, f]
-	jno .jump235
+	jno .jump213
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump235:
+.jump213:
 	imul rdi, [rsp + 0 + 8] ; multiply by argnum
-	jno .jump236
+	jno .jump214
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump236:
+.jump214:
 	imul rdi, [rsp + 0 + 16] ; multiply by 800
-	jno .jump237
+	jno .jump215
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump237:
+.jump215:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -1428,26 +1396,7 @@ _q:
 	; Initialize v to 0
 	mov rax, 0
 	push rax
-.jump238: ; Begin body of loop
-	; Compare x to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump240 ; If x >= bound, ...
-	mov qword [rsp + 16], 0 ; x = 0
-	add qword [rsp + 8], 1 ; w++
-.jump240:
-	; Compare w to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump241 ; If w >= bound, ...
-	mov qword [rsp + 8], 0 ; w = 0
-	add qword [rsp + 0], 1 ; v++
-.jump241:
-	; Compare v to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump239 ; If v >= bound, break
-.jump242:
+.jump216: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const34] ; 518
 	push rax
@@ -1468,28 +1417,43 @@ _q:
 	add rsp, 8
 	; Increment x
 	add qword [rsp + 16], 1
-	jmp .jump238
-.jump239: ; End body of loop
+	; Compare x to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump216 ; If x < bound, next iter
+	mov qword [rsp + 16], 0 ; x = 0
+	add qword [rsp + 8], 1 ; w++
+	; Compare w to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump216 ; If w < bound, next iter
+	mov qword [rsp + 8], 0 ; w = 0
+	add qword [rsp + 0], 1 ; v++
+	; Compare v to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump216 ; If v < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-	jmp .jump227
-.jump226:
+	jmp .jump205
+.jump204:
 	mov rax, [rel const2] ; True
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump243
+	je .jump220
 	mov rax, [rel const12] ; False
 	push rax
-	jmp .jump244
-.jump243:
+	jmp .jump221
+.jump220:
 	mov rax, [rel const12] ; False
 	push rax
-.jump244:
+.jump221:
 	pop rax
 	cmp rax, 0
-	je .jump245
+	je .jump222
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for x
@@ -1499,12 +1463,12 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump247
+	jg .jump224
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump247:
+.jump224:
 	; Computing bound for w
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 120 to rsp
@@ -1512,10 +1476,10 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump248
+	jg .jump225
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump248:
+.jump225:
 	; Computing bound for v
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 112 to rsp
@@ -1523,35 +1487,35 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump249
+	jg .jump226
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump249:
+.jump226:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by m
-	jno .jump250
+	jno .jump227
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump250:
+.jump227:
 	imul rdi, [rsp + 0 + 8] ; multiply by l
-	jno .jump251
+	jno .jump228
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump251:
+.jump228:
 	imul rdi, [rsp + 0 + 16] ; multiply by l
-	jno .jump252
+	jno .jump229
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump252:
+.jump229:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -1565,26 +1529,7 @@ _q:
 	; Initialize v to 0
 	mov rax, 0
 	push rax
-.jump253: ; Begin body of loop
-	; Compare x to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump255 ; If x >= bound, ...
-	mov qword [rsp + 16], 0 ; x = 0
-	add qword [rsp + 8], 1 ; w++
-.jump255:
-	; Compare w to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump256 ; If w >= bound, ...
-	mov qword [rsp + 8], 0 ; w = 0
-	add qword [rsp + 0], 1 ; v++
-.jump256:
-	; Compare v to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump254 ; If v >= bound, break
-.jump257:
+.jump230: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 104 to rsp
@@ -1607,13 +1552,28 @@ _q:
 	add rsp, 8
 	; Increment x
 	add qword [rsp + 16], 1
-	jmp .jump253
-.jump254: ; End body of loop
+	; Compare x to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump230 ; If x < bound, next iter
+	mov qword [rsp + 16], 0 ; x = 0
+	add qword [rsp + 8], 1 ; w++
+	; Compare w to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump230 ; If w < bound, next iter
+	mov qword [rsp + 8], 0 ; w = 0
+	add qword [rsp + 0], 1 ; v++
+	; Compare v to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump230 ; If v < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-	jmp .jump246
-.jump245:
+	jmp .jump223
+.jump222:
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for x
@@ -1623,12 +1583,12 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump258
+	jg .jump234
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump258:
+.jump234:
 	; Computing bound for w
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 112 to rsp
@@ -1636,10 +1596,10 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump259
+	jg .jump235
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump259:
+.jump235:
 	; Computing bound for v
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 104 to rsp
@@ -1647,35 +1607,35 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump260
+	jg .jump236
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump260:
+.jump236:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by n
-	jno .jump261
+	jno .jump237
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump261:
+.jump237:
 	imul rdi, [rsp + 0 + 8] ; multiply by m
-	jno .jump262
+	jno .jump238
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump262:
+.jump238:
 	imul rdi, [rsp + 0 + 16] ; multiply by u
-	jno .jump263
+	jno .jump239
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump263:
+.jump239:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -1689,26 +1649,7 @@ _q:
 	; Initialize v to 0
 	mov rax, 0
 	push rax
-.jump264: ; Begin body of loop
-	; Compare x to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump266 ; If x >= bound, ...
-	mov qword [rsp + 16], 0 ; x = 0
-	add qword [rsp + 8], 1 ; w++
-.jump266:
-	; Compare w to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump267 ; If w >= bound, ...
-	mov qword [rsp + 8], 0 ; w = 0
-	add qword [rsp + 0], 1 ; v++
-.jump267:
-	; Compare v to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump265 ; If v >= bound, break
-.jump268:
+.jump240: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 80 to rsp
@@ -1731,13 +1672,28 @@ _q:
 	add rsp, 8
 	; Increment x
 	add qword [rsp + 16], 1
-	jmp .jump264
-.jump265: ; End body of loop
+	; Compare x to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump240 ; If x < bound, next iter
+	mov qword [rsp + 16], 0 ; x = 0
+	add qword [rsp + 8], 1 ; w++
+	; Compare w to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump240 ; If w < bound, next iter
+	mov qword [rsp + 8], 0 ; w = 0
+	add qword [rsp + 0], 1 ; v++
+	; Compare v to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump240 ; If v < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-.jump246:
-.jump227:
+.jump223:
+.jump205:
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 112 to rsp
 		mov r10, [r12 - 112 + 0]
@@ -1769,37 +1725,37 @@ _q:
 	push rax
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump269
+	jge .jump244
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump269:
+.jump244:
 	cmp rax, [rsp + 24]
-	jl .jump270
+	jl .jump245
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump270:
+.jump245:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump271
+	jge .jump246
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump271:
+.jump246:
 	cmp rax, [rsp + 32]
-	jl .jump272
+	jl .jump247
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump272:
+.jump247:
 	mov rax, [rsp + 16]
 	cmp rax, 0
-	jge .jump273
+	jge .jump248
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump273:
+.jump248:
 	cmp rax, [rsp + 40]
-	jl .jump274
+	jl .jump249
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump274:
+.jump249:
 	mov rax, 0
 	imul rax, [rsp + 24] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -1819,28 +1775,23 @@ _q:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump275
+	jg .jump250
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump275:
+.jump250:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof float
 imul rdi, [rsp + 0 + 0] ; multiply by (if (if (! false) then false else (s < t)) then (array[v : h[n, f], w : argnum, x : 800] 518) else (if (if true then false else false) then (array[v : m, w : l, x : l] n) else (array[v : n, w : m, x : u] j)))[to_int({o, q()}{1}), u, {m}{0}]
-	jno .jump276
+	jno .jump251
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump276:
+.jump251:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize v to 0
 	mov rax, 0
 	push rax
-.jump277: ; Begin body of loop
-	; Compare v to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump278 ; If v >= bound, break
-.jump279:
+.jump252: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8 ; Align stack
 	call _q
@@ -1860,8 +1811,11 @@ imul rdi, [rsp + 0 + 0] ; multiply by (if (if (! false) then false else (s < t))
 	add rsp, 8
 	; Increment v
 	add qword [rsp + 0], 1
-	jmp .jump277
-.jump278: ; End body of loop
+	; Compare v to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump252 ; If v < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; array left on stack
@@ -1882,24 +1836,24 @@ imul rdi, [rsp + 0 + 0] ; multiply by (if (if (! false) then false else (s < t))
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump280
+	je .jump254
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 120 to rsp
 		mov r10, [r12 - 120 + 0]
 		mov [rsp + 0], r10
-	jmp .jump281
-.jump280:
+	jmp .jump255
+.jump254:
 	sub rsp, 8
 	; Moving 8 bytes from r12 - -16 to rsp
 		mov r10, [r12 - -16 + 0]
 		mov [rsp + 0], r10
-.jump281:
+.jump255:
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump282
+	jg .jump256
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump282:
+.jump256:
 	; Computing bound for y
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 32 to rsp
@@ -1907,12 +1861,12 @@ imul rdi, [rsp + 0 + 0] ; multiply by (if (if (! false) then false else (s < t))
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump283
+	jg .jump257
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump283:
+.jump257:
 	; Computing bound for x
 	sub rsp, 8
 	; Moving 8 bytes from r12 - 48 to rsp
@@ -1920,10 +1874,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (if (if (! false) then false else (s < t))
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump284
+	jg .jump258
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump284:
+.jump258:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 24], rax ; Move to pre-allocated space
@@ -1936,26 +1890,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (if (if (! false) then false else (s < t))
 	; Initialize x to 0
 	mov rax, 0
 	push rax
-.jump285: ; Begin body of loop
-	; Compare z to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump287 ; If z >= bound, ...
-	mov qword [rsp + 16], 0 ; z = 0
-	add qword [rsp + 8], 1 ; y++
-.jump287:
-	; Compare y to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump288 ; If y >= bound, ...
-	mov qword [rsp + 8], 0 ; y = 0
-	add qword [rsp + 0], 1 ; x++
-.jump288:
-	; Compare x to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump286 ; If x >= bound, break
-.jump289:
+.jump259: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8 ; Align stack
 	call _q
@@ -1964,13 +1899,27 @@ imul rdi, [rsp + 0 + 0] ; multiply by (if (if (! false) then false else (s < t))
 	movsd [rsp], xmm0
 	movsd xmm0, [rsp]
 	add rsp, 8
-	movsd xmm1, [rsp + 48] ; Load sum
-	addsd xmm0, xmm1 ; Add loop body
+	addsd xmm0, [rsp + 48] ; Load sum
 	movsd [rsp + 48], xmm0 ; Save sum
 	; Increment z
 	add qword [rsp + 16], 1
-	jmp .jump285
-.jump286: ; End body of loop
+	; Compare z to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump259 ; If z < bound, next iter
+	mov qword [rsp + 16], 0 ; z = 0
+	add qword [rsp + 8], 1 ; y++
+	; Compare y to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump259 ; If y < bound, next iter
+	mov qword [rsp + 8], 0 ; y = 0
+	add qword [rsp + 0], 1 ; x++
+	; Compare x to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump259 ; If x < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; Free all loop bounds
@@ -2034,7 +1983,7 @@ _jpl_main:
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump91
+	je .jump82
 	; Allocating 8 bytes for the sum
 	sub rsp, 8
 	; Computing bound for d
@@ -2044,24 +1993,19 @@ _jpl_main:
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump93
+	jg .jump84
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump93:
+.jump84:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize d to 0
 	mov rax, 0
 	push rax
-.jump94: ; Begin body of loop
-	; Compare d to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump95 ; If d >= bound, break
-.jump96:
+.jump85: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
@@ -2071,26 +2015,29 @@ _jpl_main:
 	add [rsp + 16], rax ; Add loop body to sum
 	; Increment d
 	add qword [rsp + 0], 1
-	jmp .jump94
-.jump95: ; End body of loop
+	; Compare d to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump85 ; If d < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; Free all loop bounds
 	add rsp, 8
 	; sum left on stack
-	jmp .jump92
-.jump91:
+	jmp .jump83
+.jump82:
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
 		mov r10, [rbp - -16 + 0]
 		mov [rsp + 0], r10
-.jump92:
+.jump83:
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump97
+	jg .jump87
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump97:
+.jump87:
 	; Computing bound for e
 	mov rax, [rel const20] ; 612
 	push rax
@@ -2106,13 +2053,13 @@ _jpl_main:
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump98
+	je .jump88
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
 		mov r10, [rbp - -16 + 0]
 		mov [rsp + 0], r10
-	jmp .jump99
-.jump98:
+	jmp .jump89
+.jump88:
 	call _a
 	sub rsp, 8
 	movsd [rsp], xmm0
@@ -2120,15 +2067,15 @@ _jpl_main:
 	add rsp, 8
 	call _to_int
 	push rax
-.jump99:
+.jump89:
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump100
+	jg .jump90
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump100:
+.jump90:
 	; Computing bound for d
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 32 to rsp
@@ -2140,27 +2087,27 @@ _jpl_main:
 	add rsp, 0
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump101
+	jg .jump91
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump101:
+.jump91:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof float
 	imul rdi, [rsp + 0 + 0] ; multiply by {c}{0}
-	jno .jump102
+	jno .jump92
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump102:
+.jump92:
 	imul rdi, [rsp + 0 + 8] ; multiply by (if (c > 612) then argnum else to_int(a()))
-	jno .jump103
+	jno .jump93
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump103:
+.jump93:
 imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) else argnum)
-	jno .jump104
+	jno .jump94
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump104:
+.jump94:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize f to 0
@@ -2172,26 +2119,7 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 	; Initialize d to 0
 	mov rax, 0
 	push rax
-.jump105: ; Begin body of loop
-	; Compare f to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump107 ; If f >= bound, ...
-	mov qword [rsp + 16], 0 ; f = 0
-	add qword [rsp + 8], 1 ; e++
-.jump107:
-	; Compare e to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump108 ; If e >= bound, ...
-	mov qword [rsp + 8], 0 ; e = 0
-	add qword [rsp + 0], 1 ; d++
-.jump108:
-	; Compare d to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump106 ; If d >= bound, break
-.jump109:
+.jump95: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8 ; Align stack
 	call _a
@@ -2215,8 +2143,23 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 	add rsp, 8
 	; Increment f
 	add qword [rsp + 16], 1
-	jmp .jump105
-.jump106: ; End body of loop
+	; Compare f to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump95 ; If f < bound, next iter
+	mov qword [rsp + 16], 0 ; f = 0
+	add qword [rsp + 8], 1 ; e++
+	; Compare e to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump95 ; If e < bound, next iter
+	mov qword [rsp + 8], 0 ; e = 0
+	add qword [rsp + 0], 1 ; d++
+	; Compare d to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump95 ; If d < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
@@ -2236,21 +2179,21 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump110
+	jg .jump99
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump110:
+.jump99:
 	; Computing bound for e
 	mov rax, [rel const21] ; 838
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump111
+	jg .jump100
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump111:
+.jump100:
 	; Computing bound for d
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
@@ -2258,10 +2201,10 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump112
+	jg .jump101
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump112:
+.jump101:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 24], rax ; Move to pre-allocated space
@@ -2274,26 +2217,7 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 	; Initialize d to 0
 	mov rax, 0
 	push rax
-.jump113: ; Begin body of loop
-	; Compare f to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump115 ; If f >= bound, ...
-	mov qword [rsp + 16], 0 ; f = 0
-	add qword [rsp + 8], 1 ; e++
-.jump115:
-	; Compare e to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump116 ; If e >= bound, ...
-	mov qword [rsp + 8], 0 ; e = 0
-	add qword [rsp + 0], 1 ; d++
-.jump116:
-	; Compare d to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump114 ; If d >= bound, break
-.jump117:
+.jump102: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 128 to rsp
@@ -2303,8 +2227,23 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 	add [rsp + 48], rax ; Add loop body to sum
 	; Increment f
 	add qword [rsp + 16], 1
-	jmp .jump113
-.jump114: ; End body of loop
+	; Compare f to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump102 ; If f < bound, next iter
+	mov qword [rsp + 16], 0 ; f = 0
+	add qword [rsp + 8], 1 ; e++
+	; Compare e to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump102 ; If e < bound, next iter
+	mov qword [rsp + 8], 0 ; e = 0
+	add qword [rsp + 0], 1 ; d++
+	; Compare d to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump102 ; If d < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; Free all loop bounds
@@ -2316,10 +2255,10 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump118
+	jg .jump106
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump118:
+.jump106:
 	; Computing bound for d
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
@@ -2331,28 +2270,28 @@ imul rdi, [rsp + 0 + 16] ; multiply by (if (377 < c) then (sum[d : c] argnum) el
 	add rsp, 0
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump119
+	jg .jump107
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump119:
+.jump107:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof float
 	imul rdi, [rsp + 0 + 0] ; multiply by {argnum}{0}
-	jno .jump120
+	jno .jump108
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump120:
+.jump108:
 imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
-	jno .jump121
+	jno .jump109
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump121:
+.jump109:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -2363,19 +2302,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	; Initialize d to 0
 	mov rax, 0
 	push rax
-.jump122: ; Begin body of loop
-	; Compare e to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump124 ; If e >= bound, ...
-	mov qword [rsp + 8], 0 ; e = 0
-	add qword [rsp + 0], 1 ; d++
-.jump124:
-	; Compare d to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump123 ; If d >= bound, break
-.jump125:
+.jump110: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8 ; Align stack
 	sub rsp, 8
@@ -2402,8 +2329,17 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	add rsp, 8
 	; Increment e
 	add qword [rsp + 8], 1
-	jmp .jump122
-.jump123: ; End body of loop
+	; Compare e to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump110 ; If e < bound, next iter
+	mov qword [rsp + 8], 0 ; e = 0
+	add qword [rsp + 0], 1 ; d++
+	; Compare d to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump110 ; If d < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
@@ -2445,7 +2381,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump126
+	je .jump113
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for i
@@ -2455,12 +2391,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump128
+	jg .jump115
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump128:
+.jump115:
 	; Computing bound for h
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 48 to rsp
@@ -2468,22 +2404,22 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump129
+	jg .jump116
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump129:
+.jump116:
 	; Computing total size of heap memory to allocate
 	mov rdi, 32 ; sizeof {float,float,float,float}
 	imul rdi, [rsp + 0 + 0] ; multiply by g
-	jno .jump130
+	jno .jump117
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump130:
+.jump117:
 	imul rdi, [rsp + 0 + 8] ; multiply by f
-	jno .jump131
+	jno .jump118
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump131:
+.jump118:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 16], rax ; Move to pre-allocated space
 	; Initialize i to 0
@@ -2492,19 +2428,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	; Initialize h to 0
 	mov rax, 0
 	push rax
-.jump132: ; Begin body of loop
-	; Compare i to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump134 ; If i >= bound, ...
-	mov qword [rsp + 8], 0 ; i = 0
-	add qword [rsp + 0], 1 ; h++
-.jump134:
-	; Compare h to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump133 ; If h >= bound, break
-.jump135:
+.jump119: ; Begin body of loop
 	; Compute loop body
 	call _a
 	sub rsp, 8
@@ -2544,17 +2468,17 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump136
+	je .jump120
 	mov rax, [rel const2] ; True
 	push rax
-	jmp .jump137
-.jump136:
+	jmp .jump121
+.jump120:
 	mov rax, [rel const12] ; False
 	push rax
-.jump137:
+.jump121:
 	pop rax
 	cmp rax, 0
-	je .jump138
+	je .jump122
 	sub rsp, 8 ; Align stack
 	call _a
 	sub rsp, 8
@@ -2572,8 +2496,8 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	add rsp, 8 ; Remove alignment
 	sub rsp, 8
 	movsd [rsp], xmm0
-	jmp .jump139
-.jump138:
+	jmp .jump123
+.jump122:
 	sub rsp, 8 ; Align stack
 	mov rax, [rel const24] ; 78.12
 	push rax
@@ -2583,7 +2507,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	add rsp, 8 ; Remove alignment
 	sub rsp, 8
 	movsd [rsp], xmm0
-.jump139:
+.jump123:
 	; Index to store in
 	mov rax, 0
 	imul rax, [rsp + 48] ; No overflow if indices in bounds
@@ -2605,13 +2529,22 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	add rsp, 32
 	; Increment i
 	add qword [rsp + 8], 1
-	jmp .jump132
-.jump133: ; End body of loop
+	; Compare i to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump119 ; If i < bound, next iter
+	mov qword [rsp + 8], 0 ; i = 0
+	add qword [rsp + 0], 1 ; h++
+	; Compare h to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump119 ; If h < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
-	jmp .jump127
-.jump126:
+	jmp .jump114
+.jump113:
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for i
@@ -2636,12 +2569,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump140
+	jg .jump126
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump140:
+.jump126:
 	; Computing bound for i
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 48 to rsp
@@ -2649,10 +2582,10 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump141
+	jg .jump127
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump141:
+.jump127:
 	; Computing bound for h
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 48 to rsp
@@ -2660,12 +2593,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump142
+	jg .jump128
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump142:
+.jump128:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 24], rax ; Move to pre-allocated space
@@ -2678,26 +2611,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	; Initialize h to 0
 	mov rax, 0
 	push rax
-.jump143: ; Begin body of loop
-	; Compare j to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump145 ; If j >= bound, ...
-	mov qword [rsp + 16], 0 ; j = 0
-	add qword [rsp + 8], 1 ; i++
-.jump145:
-	; Compare i to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump146 ; If i >= bound, ...
-	mov qword [rsp + 8], 0 ; i = 0
-	add qword [rsp + 0], 1 ; h++
-.jump146:
-	; Compare h to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump144 ; If h >= bound, break
-.jump147:
+.jump129: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 128 to rsp
@@ -2707,8 +2621,23 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	add [rsp + 48], rax ; Add loop body to sum
 	; Increment j
 	add qword [rsp + 16], 1
-	jmp .jump143
-.jump144: ; End body of loop
+	; Compare j to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump129 ; If j < bound, next iter
+	mov qword [rsp + 16], 0 ; j = 0
+	add qword [rsp + 8], 1 ; i++
+	; Compare i to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump129 ; If i < bound, next iter
+	mov qword [rsp + 8], 0 ; i = 0
+	add qword [rsp + 0], 1 ; h++
+	; Compare h to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump129 ; If h < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; Free all loop bounds
@@ -2717,22 +2646,22 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	pop rax
 	pop r10
 	cmp r10, 0
-	jne .jump148
+	jne .jump133
 	lea rdi, [rel const16] ; mod by zero
 	call _fail_assertion
-.jump148:
+.jump133:
 	cqo
 	idiv r10
 	mov rax, rdx
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump149
+	jg .jump134
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump149:
+.jump134:
 	; Computing bound for h
 	sub rsp, 8 ; Align stack
 	call _a
@@ -2755,22 +2684,22 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[d : argnum, e : 838, f : c] e) + c)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump150
+	jg .jump135
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump150:
+.jump135:
 	; Computing total size of heap memory to allocate
 	mov rdi, 32 ; sizeof {float,float,float,float}
 	imul rdi, [rsp + 0 + 0] ; multiply by to_int(tan(log(a())))
-	jno .jump151
+	jno .jump136
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump151:
+.jump136:
 imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_int(atan(a())))
-	jno .jump152
+	jno .jump137
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump152:
+.jump137:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 16], rax ; Move to pre-allocated space
 	; Initialize i to 0
@@ -2779,33 +2708,21 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	; Initialize h to 0
 	mov rax, 0
 	push rax
-.jump153: ; Begin body of loop
-	; Compare i to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump155 ; If i >= bound, ...
-	mov qword [rsp + 8], 0 ; i = 0
-	add qword [rsp + 0], 1 ; h++
-.jump155:
-	; Compare h to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump154 ; If h >= bound, break
-.jump156:
+.jump138: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump157
+	je .jump139
 	mov rax, [rel const2] ; True
 	push rax
 	pop rax
-.jump157:
+.jump139:
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump158
+	je .jump140
 	mov rax, [rel const25] ; 79
 	push rax
 	sub rsp, 8
@@ -2818,14 +2735,14 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	setg al
 	and rax, 1
 	push rax
-	jmp .jump159
-.jump158:
+	jmp .jump141
+.jump140:
 	mov rax, [rel const12] ; False
 	push rax
-.jump159:
+.jump141:
 	pop rax
 	cmp rax, 0
-	je .jump160
+	je .jump142
 	call _a
 	sub rsp, 8
 	movsd [rsp], xmm0
@@ -2872,8 +2789,8 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	add rsp, 8 ; Remove alignment
 	sub rsp, 8
 	movsd [rsp], xmm0
-	jmp .jump161
-.jump160:
+	jmp .jump143
+.jump142:
 	call _a
 	sub rsp, 8
 	movsd [rsp], xmm0
@@ -2902,7 +2819,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	movsd [rsp], xmm0
 	mov rax, [rel const28] ; 14.34
 	push rax
-.jump161:
+.jump143:
 	; Index to store in
 	mov rax, 0
 	imul rax, [rsp + 48] ; No overflow if indices in bounds
@@ -2924,12 +2841,21 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	add rsp, 32
 	; Increment i
 	add qword [rsp + 8], 1
-	jmp .jump153
-.jump154: ; End body of loop
+	; Compare i to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump138 ; If i < bound, next iter
+	mov qword [rsp + 8], 0 ; i = 0
+	add qword [rsp + 0], 1 ; h++
+	; Compare h to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump138 ; If h < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
-.jump127:
+.jump114:
 	lea rdi, [rel const29] ; h.png
 	call _write_image
 	add rsp, 24
@@ -2941,28 +2867,23 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump162
+	jg .jump146
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump162:
+.jump146:
 	; Computing total size of heap memory to allocate
 	mov rdi, 0 ; sizeof {{}}
 	imul rdi, [rsp + 0 + 0] ; multiply by 810
-	jno .jump163
+	jno .jump147
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump163:
+.jump147:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize h to 0
 	mov rax, 0
 	push rax
-.jump164: ; Begin body of loop
-	; Compare h to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump165 ; If h >= bound, break
-.jump166:
+.jump148: ; Begin body of loop
 	; Compute loop body
 	; Index to store in
 	mov rax, 0
@@ -2975,8 +2896,11 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	add rsp, 0
 	; Increment h
 	add qword [rsp + 0], 1
-	jmp .jump164
-.jump165: ; End body of loop
+	; Compare h to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump148 ; If h < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; array left on stack
@@ -2990,19 +2914,19 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	push rax
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump167
+	jge .jump150
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump167:
+.jump150:
 	cmp rax, [rsp + 8]
-	jl .jump168
+	jl .jump151
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump168:
+.jump151:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -3032,12 +2956,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump169
+	jg .jump152
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump169:
+.jump152:
 	; Computing bound for h
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
@@ -3045,10 +2969,10 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump170
+	jg .jump153
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump170:
+.jump153:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 16], rax ; Move to pre-allocated space
@@ -3058,19 +2982,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	; Initialize h to 0
 	mov rax, 0
 	push rax
-.jump171: ; Begin body of loop
-	; Compare i to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump173 ; If i >= bound, ...
-	mov qword [rsp + 8], 0 ; i = 0
-	add qword [rsp + 0], 1 ; h++
-.jump173:
-	; Compare h to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump172 ; If h >= bound, break
-.jump174:
+.jump154: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 64 to rsp
@@ -3080,8 +2992,17 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	add [rsp + 32], rax ; Add loop body to sum
 	; Increment i
 	add qword [rsp + 8], 1
-	jmp .jump171
-.jump172: ; End body of loop
+	; Compare i to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump154 ; If i < bound, next iter
+	mov qword [rsp + 8], 0 ; i = 0
+	add qword [rsp + 0], 1 ; h++
+	; Compare h to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump154 ; If h < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; Free all loop bounds
@@ -3089,10 +3010,10 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	; sum left on stack
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump175
+	jg .jump157
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump175:
+.jump157:
 	; Computing bound for h
 	mov rax, [rel const32] ; 812
 	push rax
@@ -3103,37 +3024,37 @@ imul rdi, [rsp + 0 + 8] ; multiply by ((sum[h : g, i : g, j : argnum] j) % to_in
 	pop rax
 	pop r10
 	cmp r10, 0
-	jne .jump176
+	jne .jump158
 	lea rdi, [rel const33] ; divide by zero
 	call _fail_assertion
-.jump176:
+.jump158:
 	cqo
 	idiv r10
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump177
+	jg .jump159
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump177:
+.jump159:
 	; Computing total size of heap memory to allocate
 	mov rdi, 24 ; sizeof int[,]
 	imul rdi, [rsp + 0 + 0] ; multiply by (f / 812)
-	jno .jump178
+	jno .jump160
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump178:
+.jump160:
 imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
-	jno .jump179
+	jno .jump161
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump179:
+.jump161:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -3144,19 +3065,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	; Initialize h to 0
 	mov rax, 0
 	push rax
-.jump180: ; Begin body of loop
-	; Compare i to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump182 ; If i >= bound, ...
-	mov qword [rsp + 8], 0 ; i = 0
-	add qword [rsp + 0], 1 ; h++
-.jump182:
-	; Compare h to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump181 ; If h >= bound, break
-.jump183:
+.jump162: ; Begin body of loop
 	; Compute loop body
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
@@ -3165,33 +3074,33 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump184
+	jg .jump163
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump184:
+.jump163:
 	; Computing bound for j
 	mov rax, [rel const35] ; 676
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump185
+	jg .jump164
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump185:
+.jump164:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by 676
-	jno .jump186
+	jno .jump165
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump186:
+.jump165:
 	imul rdi, [rsp + 0 + 8] ; multiply by 518
-	jno .jump187
+	jno .jump166
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump187:
+.jump166:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 16], rax ; Move to pre-allocated space
 	; Initialize k to 0
@@ -3200,19 +3109,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	; Initialize j to 0
 	mov rax, 0
 	push rax
-.jump188: ; Begin body of loop
-	; Compare k to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump190 ; If k >= bound, ...
-	mov qword [rsp + 8], 0 ; k = 0
-	add qword [rsp + 0], 1 ; j++
-.jump190:
-	; Compare j to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump189 ; If j >= bound, break
-.jump191:
+.jump167: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 112 to rsp
@@ -3233,8 +3130,17 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add rsp, 8
 	; Increment k
 	add qword [rsp + 8], 1
-	jmp .jump188
-.jump189: ; End body of loop
+	; Compare k to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump167 ; If k < bound, next iter
+	mov qword [rsp + 8], 0 ; k = 0
+	add qword [rsp + 0], 1 ; j++
+	; Compare j to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump167 ; If j < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
@@ -3257,8 +3163,17 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add rsp, 24
 	; Increment i
 	add qword [rsp + 8], 1
-	jmp .jump180
-.jump181: ; End body of loop
+	; Compare i to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump162 ; If i < bound, next iter
+	mov qword [rsp + 8], 0 ; i = 0
+	add qword [rsp + 0], 1 ; h++
+	; Compare h to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump162 ; If h < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
@@ -3280,34 +3195,34 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump192
+	jge .jump172
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump192:
+.jump172:
 	cmp rax, [rsp + 16]
-	jl .jump193
+	jl .jump173
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump193:
+.jump173:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump194
+	jge .jump174
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump194:
+.jump174:
 	cmp rax, [rsp + 24]
-	jl .jump195
+	jl .jump175
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump195:
+.jump175:
 	mov rax, 0
 	imul rax, [rsp + 16] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -3392,7 +3307,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump196
+	je .jump176
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for m
@@ -3420,34 +3335,34 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump198
+	jge .jump178
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump198:
+.jump178:
 	cmp rax, [rsp + 16]
-	jl .jump199
+	jl .jump179
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump199:
+.jump179:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump200
+	jge .jump180
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump200:
+.jump180:
 	cmp rax, [rsp + 24]
-	jl .jump201
+	jl .jump181
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump201:
+.jump181:
 	mov rax, 0
 	imul rax, [rsp + 16] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -3464,12 +3379,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump202
+	jg .jump182
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump202:
+.jump182:
 	; Computing bound for l
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 88 to rsp
@@ -3477,10 +3392,10 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump203
+	jg .jump183
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump203:
+.jump183:
 	; Computing bound for k
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 56 to rsp
@@ -3491,35 +3406,35 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump204
+	jg .jump184
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump204:
+.jump184:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof float
 	imul rdi, [rsp + 0 + 0] ; multiply by (- f)
-	jno .jump205
+	jno .jump185
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump205:
+.jump185:
 	imul rdi, [rsp + 0 + 8] ; multiply by i
-	jno .jump206
+	jno .jump186
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump206:
+.jump186:
 	imul rdi, [rsp + 0 + 16] ; multiply by h[810, {f, argnum}{1}]
-	jno .jump207
+	jno .jump187
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump207:
+.jump187:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -3533,26 +3448,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	; Initialize k to 0
 	mov rax, 0
 	push rax
-.jump208: ; Begin body of loop
-	; Compare m to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump210 ; If m >= bound, ...
-	mov qword [rsp + 16], 0 ; m = 0
-	add qword [rsp + 8], 1 ; l++
-.jump210:
-	; Compare l to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump211 ; If l >= bound, ...
-	mov qword [rsp + 8], 0 ; l = 0
-	add qword [rsp + 0], 1 ; k++
-.jump211:
-	; Compare k to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump209 ; If k >= bound, break
-.jump212:
+.jump188: ; Begin body of loop
 	; Compute loop body
 	call _a
 	sub rsp, 8
@@ -3588,13 +3484,28 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add rsp, 8
 	; Increment m
 	add qword [rsp + 16], 1
-	jmp .jump208
-.jump209: ; End body of loop
+	; Compare m to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump188 ; If m < bound, next iter
+	mov qword [rsp + 16], 0 ; m = 0
+	add qword [rsp + 8], 1 ; l++
+	; Compare l to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump188 ; If l < bound, next iter
+	mov qword [rsp + 8], 0 ; l = 0
+	add qword [rsp + 0], 1 ; k++
+	; Compare k to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump188 ; If k < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-	jmp .jump197
-.jump196:
+	jmp .jump177
+.jump176:
 	sub rsp, 32
 	; Moving 32 bytes from rbp - 64 to rsp
 		mov r10, [rbp - 64 + 24]
@@ -3605,7 +3516,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 8], r10
 		mov r10, [rbp - 64 + 0]
 		mov [rsp + 0], r10
-.jump197:
+.jump177:
 	sub rsp, 8 ; Align stack
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 88 to rsp
@@ -3624,26 +3535,26 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump290
+	je .jump263
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 80 to rsp
 		mov r10, [rbp - 80 + 0]
 		mov [rsp + 0], r10
-	jmp .jump291
-.jump290:
+	jmp .jump264
+.jump263:
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
 		mov r10, [rbp - -16 + 0]
 		mov [rsp + 0], r10
-.jump291:
+.jump264:
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump292
+	jg .jump265
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump292:
+.jump265:
 	; Computing bound for s
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 48 to rsp
@@ -3651,10 +3562,10 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump293
+	jg .jump266
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump293:
+.jump266:
 	; Computing bound for r
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 112 to rsp
@@ -3662,35 +3573,35 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump294
+	jg .jump267
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump294:
+.jump267:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by m
-	jno .jump295
+	jno .jump268
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump295:
+.jump268:
 	imul rdi, [rsp + 0 + 8] ; multiply by g
-	jno .jump296
+	jno .jump269
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump296:
+.jump269:
 	imul rdi, [rsp + 0 + 16] ; multiply by (if false then j else argnum)
-	jno .jump297
+	jno .jump270
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump297:
+.jump270:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -3704,26 +3615,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump298: ; Begin body of loop
-	; Compare t to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump300 ; If t >= bound, ...
-	mov qword [rsp + 16], 0 ; t = 0
-	add qword [rsp + 8], 1 ; s++
-.jump300:
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump301 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump301:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump299 ; If r >= bound, break
-.jump302:
+.jump271: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 56 to rsp
@@ -3746,8 +3638,23 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add rsp, 8
 	; Increment t
 	add qword [rsp + 16], 1
-	jmp .jump298
-.jump299: ; End body of loop
+	; Compare t to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump271 ; If t < bound, next iter
+	mov qword [rsp + 16], 0 ; t = 0
+	add qword [rsp + 8], 1 ; s++
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump271 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump271 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
@@ -3765,37 +3672,37 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump303
+	jge .jump275
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump303:
+.jump275:
 	cmp rax, [rsp + 24]
-	jl .jump304
+	jl .jump276
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump304:
+.jump276:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump305
+	jge .jump277
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump305:
+.jump277:
 	cmp rax, [rsp + 32]
-	jl .jump306
+	jl .jump278
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump306:
+.jump278:
 	mov rax, [rsp + 16]
 	cmp rax, 0
-	jge .jump307
+	jge .jump279
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump307:
+.jump279:
 	cmp rax, [rsp + 40]
-	jl .jump308
+	jl .jump280
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump308:
+.jump280:
 	mov rax, 0
 	imul rax, [rsp + 24] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -3825,18 +3732,18 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump309
+	je .jump281
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 56 to rsp
 		mov r10, [rbp - 56 + 0]
 		mov [rsp + 0], r10
-	jmp .jump310
-.jump309:
+	jmp .jump282
+.jump281:
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 120 to rsp
 		mov r10, [rbp - 120 + 0]
 		mov [rsp + 0], r10
-.jump310:
+.jump282:
 	lea rdi, [rel const39] ; (IntType)
 	lea rsi, [rsp]
 	call _show
@@ -3851,10 +3758,10 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump311
+	jg .jump283
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump311:
+.jump283:
 	; Computing bound for s
 	sub rsp, 8
 	; Moving 8 bytes from rbp - -16 to rsp
@@ -3862,12 +3769,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump312
+	jg .jump284
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump312:
+.jump284:
 	; Computing bound for r
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 32 to rsp
@@ -3875,27 +3782,27 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump313
+	jg .jump285
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump313:
+.jump285:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 	imul rdi, [rsp + 0 + 0] ; multiply by c
-	jno .jump314
+	jno .jump286
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump314:
+.jump286:
 	imul rdi, [rsp + 0 + 8] ; multiply by argnum
-	jno .jump315
+	jno .jump287
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump315:
+.jump287:
 	imul rdi, [rsp + 0 + 16] ; multiply by f
-	jno .jump316
+	jno .jump288
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump316:
+.jump288:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize t to 0
@@ -3907,26 +3814,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump317: ; Begin body of loop
-	; Compare t to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump319 ; If t >= bound, ...
-	mov qword [rsp + 16], 0 ; t = 0
-	add qword [rsp + 8], 1 ; s++
-.jump319:
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump320 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump320:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump318 ; If r >= bound, break
-.jump321:
+.jump289: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const2] ; True
 	push rax
@@ -3947,8 +3835,23 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add rsp, 8
 	; Increment t
 	add qword [rsp + 16], 1
-	jmp .jump317
-.jump318: ; End body of loop
+	; Compare t to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump289 ; If t < bound, next iter
+	mov qword [rsp + 16], 0 ; t = 0
+	add qword [rsp + 8], 1 ; s++
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump289 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump289 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
@@ -3972,19 +3875,19 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump322
+	jge .jump293
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump322:
+.jump293:
 	cmp rax, [rsp + 8]
-	jl .jump323
+	jl .jump294
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump323:
+.jump294:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -3998,49 +3901,49 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump324
+	jge .jump295
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump324:
+.jump295:
 	cmp rax, [rsp + 24]
-	jl .jump325
+	jl .jump296
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump325:
+.jump296:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump326
+	jge .jump297
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump326:
+.jump297:
 	cmp rax, [rsp + 32]
-	jl .jump327
+	jl .jump298
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump327:
+.jump298:
 	mov rax, [rsp + 16]
 	cmp rax, 0
-	jge .jump328
+	jge .jump299
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump328:
+.jump299:
 	cmp rax, [rsp + 40]
-	jl .jump329
+	jl .jump300
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump329:
+.jump300:
 	mov rax, 0
 	imul rax, [rsp + 24] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -4060,7 +3963,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	pop rax
 	cmp rax, 0
-	je .jump330
+	je .jump301
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 80 to rsp
 		mov r10, [rbp - 80 + 0]
@@ -4078,13 +3981,13 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	setge al
 	and rax, 1
 	push rax
-	jmp .jump331
-.jump330:
+	jmp .jump302
+.jump301:
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump332
+	je .jump303
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 120 to rsp
 		mov r10, [rbp - 120 + 0]
@@ -4099,20 +4002,20 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	setle al
 	and rax, 1
 	push rax
-	jmp .jump333
-.jump332:
+	jmp .jump304
+.jump303:
 	mov rax, [rel const12] ; False
 	push rax
-.jump333:
-.jump331:
+.jump304:
+.jump302:
 	pop rax
 	cmp rax, 0
-	je .jump334
+	je .jump305
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump336
+	je .jump307
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 80 to rsp
 		mov r10, [rbp - 80 + 0]
@@ -4128,7 +4031,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	and rax, 1
 	push rax
 	pop rax
-.jump336:
+.jump307:
 	push rax
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
@@ -4139,12 +4042,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump337
+	jg .jump308
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump337:
+.jump308:
 	; Computing bound for r
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 112 to rsp
@@ -4152,22 +4055,22 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump338
+	jg .jump309
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump338:
+.jump309:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 	imul rdi, [rsp + 0 + 0] ; multiply by m
-	jno .jump339
+	jno .jump310
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump339:
+.jump310:
 	imul rdi, [rsp + 0 + 8] ; multiply by n
-	jno .jump340
+	jno .jump311
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump340:
+.jump311:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 16], rax ; Move to pre-allocated space
 	; Initialize s to 0
@@ -4176,19 +4079,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump341: ; Begin body of loop
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump343 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump343:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump342 ; If r >= bound, break
-.jump344:
+.jump312: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const12] ; False
 	push rax
@@ -4207,8 +4098,17 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add rsp, 8
 	; Increment s
 	add qword [rsp + 8], 1
-	jmp .jump341
-.jump342: ; End body of loop
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump312 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump312 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
@@ -4220,40 +4120,40 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump345
+	je .jump315
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 120 to rsp
 		mov r10, [rbp - 120 + 0]
 		mov [rsp + 0], r10
-	jmp .jump346
-.jump345:
+	jmp .jump316
+.jump315:
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 32 to rsp
 		mov r10, [rbp - 32 + 0]
 		mov [rsp + 0], r10
-.jump346:
+.jump316:
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump347
+	jge .jump317
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump347:
+.jump317:
 	cmp rax, [rsp + 16]
-	jl .jump348
+	jl .jump318
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump348:
+.jump318:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump349
+	jge .jump319
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump349:
+.jump319:
 	cmp rax, [rsp + 24]
-	jl .jump350
+	jl .jump320
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump350:
+.jump320:
 	mov rax, 0
 	imul rax, [rsp + 16] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -4274,17 +4174,17 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	sete al
 	and rax, 1
 	push rax
-	jmp .jump335
-.jump334:
+	jmp .jump306
+.jump305:
 	mov rax, [rel const2] ; True
 	push rax
 	pop rax
 	xor rax, 1
 	push rax
-.jump335:
+.jump306:
 	pop rax
 	cmp rax, 0
-	je .jump351
+	je .jump321
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for r
@@ -4294,28 +4194,23 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump353
+	jg .jump323
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump353:
+.jump323:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 	imul rdi, [rsp + 0 + 0] ; multiply by i
-	jno .jump354
+	jno .jump324
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump354:
+.jump324:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump355: ; Begin body of loop
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump356 ; If r >= bound, break
-.jump357:
+.jump325: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const2] ; True
 	push rax
@@ -4332,8 +4227,11 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add rsp, 8
 	; Increment r
 	add qword [rsp + 0], 1
-	jmp .jump355
-.jump356: ; End body of loop
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump325 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; array left on stack
@@ -4343,19 +4241,19 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump358
+	jge .jump327
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump358:
+.jump327:
 	cmp rax, [rsp + 8]
-	jl .jump359
+	jl .jump328
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump359:
+.jump328:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -4369,7 +4267,7 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	pop rax
 	cmp rax, 0
-	je .jump360
+	je .jump329
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 120 to rsp
 		mov r10, [rbp - 120 + 0]
@@ -4386,28 +4284,28 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump362
+	je .jump331
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
 	cmp rax, 0
-	jne .jump363
+	jne .jump332
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
-.jump363:
+.jump332:
 	push rax
 	pop rax
-.jump362:
+.jump331:
 	push rax
-	jmp .jump361
-.jump360:
+	jmp .jump330
+.jump329:
 	mov rax, [rel const12] ; False
 	push rax
-.jump361:
+.jump330:
 	pop rax
 	cmp rax, 0
-	je .jump364
+	je .jump333
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for t
@@ -4415,10 +4313,10 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump366
+	jg .jump335
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump366:
+.jump335:
 	; Computing bound for s
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 64 to rsp
@@ -4426,12 +4324,12 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump367
+	jg .jump336
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump367:
+.jump336:
 	; Computing bound for r
 	; Allocating 8 bytes for the sum
 	sub rsp, 8
@@ -4442,24 +4340,19 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump368
+	jg .jump337
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump368:
+.jump337:
 	; Initialize sum to 0
 	mov rax, 0
 	mov [rsp + 8], rax ; Move to pre-allocated space
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump369: ; Begin body of loop
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 8]
-	jge .jump370 ; If r >= bound, break
-.jump371:
+.jump338: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 112 to rsp
@@ -4469,8 +4362,11 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	add [rsp + 16], rax ; Add loop body to sum
 	; Increment r
 	add qword [rsp + 0], 1
-	jmp .jump369
-.jump370: ; End body of loop
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 8]
+	jl .jump338 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 8
 	; Free all loop bounds
@@ -4478,27 +4374,27 @@ imul rdi, [rsp + 0 + 8] ; multiply by (sum[h : argnum, i : c] e)
 	; sum left on stack
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump372
+	jg .jump340
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump372:
+.jump340:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
-	jno .jump373
+	jno .jump341
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump373:
+.jump341:
 	imul rdi, [rsp + 0 + 8] ; multiply by e
-	jno .jump374
+	jno .jump342
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump374:
+.jump342:
 	imul rdi, [rsp + 0 + 16] ; multiply by 425
-	jno .jump375
+	jno .jump343
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump375:
+.jump343:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize t to 0
@@ -4510,26 +4406,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump376: ; Begin body of loop
-	; Compare t to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump378 ; If t >= bound, ...
-	mov qword [rsp + 16], 0 ; t = 0
-	add qword [rsp + 8], 1 ; s++
-.jump378:
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump379 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump379:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump377 ; If r >= bound, break
-.jump380:
+.jump344: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const12] ; False
 	push rax
@@ -4553,8 +4430,23 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	add rsp, 8
 	; Increment t
 	add qword [rsp + 16], 1
-	jmp .jump376
-.jump377: ; End body of loop
+	; Compare t to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump344 ; If t < bound, next iter
+	mov qword [rsp + 16], 0 ; t = 0
+	add qword [rsp + 8], 1 ; s++
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump344 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump344 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
@@ -4601,13 +4493,13 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 8], r10
 		mov r10, [rbp - 64 + 0]
 		mov [rsp + 0], r10
-	jmp .jump365
-.jump364:
+	jmp .jump334
+.jump333:
 	mov rax, [rel const12] ; False
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump381
+	je .jump348
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for t
@@ -4615,10 +4507,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump383
+	jg .jump350
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump383:
+.jump350:
 	; Computing bound for s
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 32 to rsp
@@ -4626,12 +4518,12 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump384
+	jg .jump351
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump384:
+.jump351:
 	; Computing bound for r
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 32 to rsp
@@ -4639,27 +4531,27 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump385
+	jg .jump352
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump385:
+.jump352:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 	imul rdi, [rsp + 0 + 0] ; multiply by c
-	jno .jump386
+	jno .jump353
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump386:
+.jump353:
 	imul rdi, [rsp + 0 + 8] ; multiply by c
-	jno .jump387
+	jno .jump354
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump387:
+.jump354:
 	imul rdi, [rsp + 0 + 16] ; multiply by 488
-	jno .jump388
+	jno .jump355
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump388:
+.jump355:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize t to 0
@@ -4671,26 +4563,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump389: ; Begin body of loop
-	; Compare t to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump391 ; If t >= bound, ...
-	mov qword [rsp + 16], 0 ; t = 0
-	add qword [rsp + 8], 1 ; s++
-.jump391:
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump392 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump392:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump390 ; If r >= bound, break
-.jump393:
+.jump356: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const12] ; False
 	push rax
@@ -4711,13 +4584,28 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	add rsp, 8
 	; Increment t
 	add qword [rsp + 16], 1
-	jmp .jump389
-.jump390: ; End body of loop
+	; Compare t to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump356 ; If t < bound, next iter
+	mov qword [rsp + 16], 0 ; t = 0
+	add qword [rsp + 8], 1 ; s++
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump356 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump356 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-	jmp .jump382
-.jump381:
+	jmp .jump349
+.jump348:
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for t
@@ -4727,10 +4615,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump394
+	jg .jump360
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump394:
+.jump360:
 	; Computing bound for s
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 120 to rsp
@@ -4738,12 +4626,12 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump395
+	jg .jump361
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump395:
+.jump361:
 	; Computing bound for r
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 120 to rsp
@@ -4751,27 +4639,27 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump396
+	jg .jump362
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump396:
+.jump362:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 	imul rdi, [rsp + 0 + 0] ; multiply by l
-	jno .jump397
+	jno .jump363
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump397:
+.jump363:
 	imul rdi, [rsp + 0 + 8] ; multiply by l
-	jno .jump398
+	jno .jump364
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump398:
+.jump364:
 	imul rdi, [rsp + 0 + 16] ; multiply by g
-	jno .jump399
+	jno .jump365
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump399:
+.jump365:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize t to 0
@@ -4783,26 +4671,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump400: ; Begin body of loop
-	; Compare t to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump402 ; If t >= bound, ...
-	mov qword [rsp + 16], 0 ; t = 0
-	add qword [rsp + 8], 1 ; s++
-.jump402:
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump403 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump403:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump401 ; If r >= bound, break
-.jump404:
+.jump366: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const12] ; False
 	push rax
@@ -4823,12 +4692,27 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	add rsp, 8
 	; Increment t
 	add qword [rsp + 16], 1
-	jmp .jump400
-.jump401: ; End body of loop
+	; Compare t to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump366 ; If t < bound, next iter
+	mov qword [rsp + 16], 0 ; t = 0
+	add qword [rsp + 8], 1 ; s++
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump366 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump366 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-.jump382:
+.jump349:
 	call _q
 	sub rsp, 8
 	movsd [rsp], xmm0
@@ -4858,10 +4742,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump405
+	jg .jump370
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump405:
+.jump370:
 	; Computing bound for r
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 80 to rsp
@@ -4869,28 +4753,28 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump406
+	jg .jump371
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump406:
+.jump371:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by j
-	jno .jump407
+	jno .jump372
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump407:
+.jump372:
 	imul rdi, [rsp + 0 + 8] ; multiply by e
-	jno .jump408
+	jno .jump373
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump408:
+.jump373:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -4901,19 +4785,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump409: ; Begin body of loop
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 24]
-	jl .jump411 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump411:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 16]
-	jge .jump410 ; If r >= bound, break
-.jump412:
+.jump374: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 112 to rsp
@@ -4934,8 +4806,17 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	add rsp, 8
 	; Increment s
 	add qword [rsp + 8], 1
-	jmp .jump409
-.jump410: ; End body of loop
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 24]
+	jl .jump374 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 16]
+	jl .jump374 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
@@ -4957,9 +4838,9 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 8], r10
 		mov r10, [rbp - 64 + 0]
 		mov [rsp + 0], r10
-.jump365:
-	jmp .jump352
-.jump351:
+.jump334:
+	jmp .jump322
+.jump321:
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
 	; Computing bound for t
@@ -4969,21 +4850,21 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump413
+	jg .jump377
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump413:
+.jump377:
 	; Computing bound for s
 	mov rax, [rel const43] ; 843
 	push rax
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump414
+	jg .jump378
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump414:
+.jump378:
 	; Computing bound for r
 	sub rsp, 16
 	; Moving 16 bytes from rbp - -16 to rsp
@@ -4997,15 +4878,15 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump415
+	jge .jump379
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump415:
+.jump379:
 	cmp rax, [rsp + 8]
-	jl .jump416
+	jl .jump380
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump416:
+.jump380:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -5019,27 +4900,27 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump417
+	jg .jump381
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump417:
+.jump381:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 	imul rdi, [rsp + 0 + 0] ; multiply by args[j]
-	jno .jump418
+	jno .jump382
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump418:
+.jump382:
 	imul rdi, [rsp + 0 + 8] ; multiply by 843
-	jno .jump419
+	jno .jump383
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump419:
+.jump383:
 	imul rdi, [rsp + 0 + 16] ; multiply by c
-	jno .jump420
+	jno .jump384
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump420:
+.jump384:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize t to 0
@@ -5051,26 +4932,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	; Initialize r to 0
 	mov rax, 0
 	push rax
-.jump421: ; Begin body of loop
-	; Compare t to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump423 ; If t >= bound, ...
-	mov qword [rsp + 16], 0 ; t = 0
-	add qword [rsp + 8], 1 ; s++
-.jump423:
-	; Compare s to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump424 ; If s >= bound, ...
-	mov qword [rsp + 8], 0 ; s = 0
-	add qword [rsp + 0], 1 ; r++
-.jump424:
-	; Compare r to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump422 ; If r >= bound, break
-.jump425:
+.jump385: ; Begin body of loop
 	; Compute loop body
 	; Allocating 8 bytes for the pointer
 	sub rsp, 8
@@ -5081,12 +4943,12 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump426
+	jg .jump386
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump426:
+.jump386:
 	; Computing bound for v
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 64 to rsp
@@ -5094,10 +4956,10 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump427
+	jg .jump387
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
-.jump427:
+.jump387:
 	; Computing bound for u
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 88 to rsp
@@ -5105,35 +4967,35 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp]
 	cmp rax, 0
-	jg .jump428
+	jg .jump388
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump428:
+.jump388:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof bool
 	imul rdi, [rsp + 0 + 0] ; multiply by i
-	jno .jump429
+	jno .jump389
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump429:
+.jump389:
 	imul rdi, [rsp + 0 + 8] ; multiply by e
-	jno .jump430
+	jno .jump390
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump430:
+.jump390:
 	imul rdi, [rsp + 0 + 16] ; multiply by s
-	jno .jump431
+	jno .jump391
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump431:
+.jump391:
 	sub rsp, 8 ; Align stack
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	add rsp, 8 ; Remove alignment
@@ -5147,26 +5009,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	; Initialize u to 0
 	mov rax, 0
 	push rax
-.jump432: ; Begin body of loop
-	; Compare w to its bound
-	mov rax, [rsp + 16]
-	cmp rax, [rsp + 40]
-	jl .jump434 ; If w >= bound, ...
-	mov qword [rsp + 16], 0 ; w = 0
-	add qword [rsp + 8], 1 ; v++
-.jump434:
-	; Compare v to its bound
-	mov rax, [rsp + 8]
-	cmp rax, [rsp + 32]
-	jl .jump435 ; If v >= bound, ...
-	mov qword [rsp + 8], 0 ; v = 0
-	add qword [rsp + 0], 1 ; u++
-.jump435:
-	; Compare u to its bound
-	mov rax, [rsp + 0]
-	cmp rax, [rsp + 24]
-	jge .jump433 ; If u >= bound, break
-.jump436:
+.jump392: ; Begin body of loop
 	; Compute loop body
 	mov rax, [rel const12] ; False
 	push rax
@@ -5187,8 +5030,23 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	add rsp, 8
 	; Increment w
 	add qword [rsp + 16], 1
-	jmp .jump432
-.jump433: ; End body of loop
+	; Compare w to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump392 ; If w < bound, next iter
+	mov qword [rsp + 16], 0 ; w = 0
+	add qword [rsp + 8], 1 ; v++
+	; Compare v to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump392 ; If v < bound, next iter
+	mov qword [rsp + 8], 0 ; v = 0
+	add qword [rsp + 0], 1 ; u++
+	; Compare u to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump392 ; If u < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
@@ -5206,19 +5064,19 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump437
+	jge .jump396
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump437:
+.jump396:
 	cmp rax, [rsp + 8]
-	jl .jump438
+	jl .jump397
 	sub rsp, 8 ; Align stack
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
 	add rsp, 8 ; Remove alignment
-.jump438:
+.jump397:
 	mov rax, 0
 	imul rax, [rsp + 8] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -5236,37 +5094,37 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 0], r10
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jge .jump439
+	jge .jump398
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump439:
+.jump398:
 	cmp rax, [rsp + 24]
-	jl .jump440
+	jl .jump399
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump440:
+.jump399:
 	mov rax, [rsp + 8]
 	cmp rax, 0
-	jge .jump441
+	jge .jump400
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump441:
+.jump400:
 	cmp rax, [rsp + 32]
-	jl .jump442
+	jl .jump401
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump442:
+.jump401:
 	mov rax, [rsp + 16]
 	cmp rax, 0
-	jge .jump443
+	jge .jump402
 	lea rdi, [rel const8] ; negative array index
 	call _fail_assertion
-.jump443:
+.jump402:
 	cmp rax, [rsp + 40]
-	jl .jump444
+	jl .jump403
 	lea rdi, [rel const9] ; index too large
 	call _fail_assertion
-.jump444:
+.jump403:
 	mov rax, 0
 	imul rax, [rsp + 24] ; No overflow if indices in bounds
 	add rax, [rsp + 0]
@@ -5301,8 +5159,23 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	add rsp, 8
 	; Increment t
 	add qword [rsp + 16], 1
-	jmp .jump421
-.jump422: ; End body of loop
+	; Compare t to its bound
+	mov rax, [rsp + 16]
+	cmp rax, [rsp + 40]
+	jl .jump385 ; If t < bound, next iter
+	mov qword [rsp + 16], 0 ; t = 0
+	add qword [rsp + 8], 1 ; s++
+	; Compare s to its bound
+	mov rax, [rsp + 8]
+	cmp rax, [rsp + 32]
+	jl .jump385 ; If s < bound, next iter
+	mov qword [rsp + 8], 0 ; s = 0
+	add qword [rsp + 0], 1 ; r++
+	; Compare r to its bound
+	mov rax, [rsp + 0]
+	cmp rax, [rsp + 24]
+	jl .jump385 ; If r < bound, next iter
+	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
@@ -5379,15 +5252,15 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump445
-	jmp .jump446
-.jump445:
-.jump446:
+	je .jump407
+	jmp .jump408
+.jump407:
+.jump408:
 	mov rax, [rel const2] ; True
 	push rax
 	pop rax
 	cmp rax, 0
-	je .jump447
+	je .jump409
 	sub rsp, 24
 	; Moving 24 bytes from rbp - 88 to rsp
 		mov r10, [rbp - 88 + 16]
@@ -5396,8 +5269,8 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 8], r10
 		mov r10, [rbp - 88 + 0]
 		mov [rsp + 0], r10
-	jmp .jump448
-.jump447:
+	jmp .jump410
+.jump409:
 	sub rsp, 24
 	; Moving 24 bytes from rbp - 88 to rsp
 		mov r10, [rbp - 88 + 16]
@@ -5406,7 +5279,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 8], r10
 		mov r10, [rbp - 88 + 0]
 		mov [rsp + 0], r10
-.jump448:
+.jump410:
 	sub rsp, 32
 	; Moving 32 bytes from rbp - 120 to rsp
 		mov r10, [rbp - 120 + 24]
@@ -5417,7 +5290,7 @@ imul rdi, [rsp + 0 + 0] ; multiply by (sum[r : l] m)
 		mov [rsp + 8], r10
 		mov r10, [rbp - 120 + 0]
 		mov [rsp + 0], r10
-.jump352:
+.jump322:
 	add rsp, 248 ; Local variables
 	pop r12
 	pop rbp
