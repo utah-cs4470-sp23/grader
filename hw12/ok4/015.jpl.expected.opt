@@ -1,0 +1,104 @@
+global jpl_main
+global _jpl_main
+extern _fail_assertion
+extern _jpl_alloc
+extern _get_time
+extern _show
+extern _print
+extern _print_time
+extern _read_image
+extern _write_image
+extern _fmod
+extern _sqrt
+extern _exp
+extern _sin
+extern _cos
+extern _tan
+extern _asin
+extern _acos
+extern _atan
+extern _log
+extern _pow
+extern _atan2
+extern _to_int
+extern _to_float
+
+section .data
+const0: db `overflow computing array size`, 0
+const1: db `(ArrayType (IntType) 2)`, 0
+
+section .text
+jpl_main:
+_jpl_main:
+	push rbp
+	mov rbp, rsp
+	push r12
+	mov r12, rbp
+	; Allocating 8 bytes for the pointer
+	sub rsp, 8
+	; Computing bound for j
+	push qword 1
+	; Computing bound for i
+	push qword 256
+	; Computing total size of heap memory to allocate
+	mov rdi, 8 ; sizeof int
+	imul rdi, [rsp + 0 + 0] ; multiply by 256
+	jno .jump1
+	lea rdi, [rel const0] ; overflow computing array size
+	call _fail_assertion
+.jump1:
+	imul rdi, [rsp + 0 + 8] ; multiply by 1
+	jno .jump2
+	lea rdi, [rel const0] ; overflow computing array size
+	call _fail_assertion
+.jump2:
+	call _jpl_alloc ; Put pointer to heap space in RAX
+	mov [rsp + 16], rax ; Move to pre-allocated space
+	; Initialize j to 0
+	mov rax, 0
+	push rax
+	; Initialize i to 0
+	mov rax, 0
+	push rax
+.jump3: ; Begin body of loop
+	; Compute loop body
+	sub rsp, 8
+	; Moving 8 bytes from rbp - 48 to rsp
+		mov r10, [rbp - 48 + 0]
+		mov [rsp + 0], r10
+	; Index to store in
+	shl rax, 8
+	mov rax, [rsp + 8]
+	shl rax, 0
+	add rax, [rsp + 16]
+	shl rax, 3
+	add rax, [rsp + 40]
+	; Move body (8 bytes) to index
+	; Moving 8 bytes from rsp to rax
+		mov r10, [rsp + 0]
+		mov [rax + 0], r10
+	add rsp, 8
+	; Increment j
+	add qword [rsp + 8], 1
+	; Compare j to its bound
+	mov rax, [rsp + 8]
+	cmp rax, 1
+	jl .jump3 ; If j < bound, next iter
+	mov qword [rsp + 8], 0 ; j = 0
+	add qword [rsp + 0], 1 ; i++
+	; Compare i to its bound
+	mov rax, [rsp + 0]
+	cmp rax, 256
+	jl .jump3 ; If i < bound, next iter
+	; End body of loop
+	; Free all loop variables
+	add rsp, 16
+	; array left on stack
+	lea rdi, [rel const1] ; (ArrayType (IntType) 2)
+	lea rsi, [rsp]
+	call _show
+	add rsp, 24
+	pop r12
+	pop rbp
+	ret
+
