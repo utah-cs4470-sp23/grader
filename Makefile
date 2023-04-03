@@ -1,6 +1,6 @@
 .PHONY: test-current test-hw1 test-hw2 count-hw1 count-hw2 upgrade
 
-CURRENT=hw11
+CURRENT=hw12
 PART=all
 DIR=..
 
@@ -60,6 +60,9 @@ count-hw10:
 count-hw11:
 	@ sh hw11/test-part $(DIR) count
 
+count-hw12:
+	@ sh hw12/test-part $(DIR) count
+
 test-hw1: jplc
 	sh hw1/test-part $(DIR) $(PART)
 
@@ -92,6 +95,9 @@ test-hw10:
 
 test-hw11:
 	sh hw11/test-part $(DIR) $(PART)
+
+test-hw12:
+	sh hw12/test-part $(DIR) $(PART)
 
 jplc:
 	curl -L 'https://github.com/utah-cs4470-sp23/class/releases/latest/download/jplc-$(OS)' -o ./jplc
