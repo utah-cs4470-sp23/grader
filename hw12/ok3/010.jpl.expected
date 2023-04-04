@@ -28,7 +28,7 @@ const0: dq 3
 const1: db `non-positive loop bound`, 0
 const2: dq 0
 const3: db `overflow computing array size`, 0
-const4: db `(ArrayType (IntType) 3)`, 0
+const4: db `(ArrayType (TupleType (IntType) (IntType) (IntType)) 3)`, 0
 
 section .text
 jpl_main:
@@ -70,7 +70,7 @@ _jpl_main:
 	call _fail_assertion
 .jump3:
 	; Computing total size of heap memory to allocate
-	mov rdi, 8 ; sizeof int
+	mov rdi, 24 ; sizeof {int,int,int}
 	imul rdi, [rsp + 0 + 0] ; multiply by 0
 	jno .jump4
 	lea rdi, [rel const3] ; overflow computing array size
@@ -100,24 +100,36 @@ _jpl_main:
 .jump7: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
+	; Moving 8 bytes from rbp - 56 to rsp
+		mov r10, [rbp - 56 + 0]
+		mov [rsp + 0], r10
+	sub rsp, 8
+	; Moving 8 bytes from rbp - 64 to rsp
+		mov r10, [rbp - 64 + 0]
+		mov [rsp + 0], r10
+	sub rsp, 8
 	; Moving 8 bytes from rbp - 72 to rsp
 		mov r10, [rbp - 72 + 0]
 		mov [rsp + 0], r10
 	; Index to store in
 	mov rax, 0
-	imul rax, [rsp + 32] ; No overflow if indices in bounds
-	add rax, [rsp + 8]
-	imul rax, [rsp + 40] ; No overflow if indices in bounds
-	add rax, [rsp + 16]
 	imul rax, [rsp + 48] ; No overflow if indices in bounds
 	add rax, [rsp + 24]
-	imul rax, 8
-	add rax, [rsp + 56]
-	; Move body (8 bytes) to index
-	; Moving 8 bytes from rsp to rax
+	imul rax, [rsp + 56] ; No overflow if indices in bounds
+	add rax, [rsp + 32]
+	imul rax, [rsp + 64] ; No overflow if indices in bounds
+	add rax, [rsp + 40]
+	imul rax, 24
+	add rax, [rsp + 72]
+	; Move body (24 bytes) to index
+	; Moving 24 bytes from rsp to rax
+		mov r10, [rsp + 16]
+		mov [rax + 16], r10
+		mov r10, [rsp + 8]
+		mov [rax + 8], r10
 		mov r10, [rsp + 0]
 		mov [rax + 0], r10
-	add rsp, 8
+	add rsp, 24
 	; Increment k
 	add qword [rsp + 16], 1
 	; Compare k to its bound
@@ -140,7 +152,7 @@ _jpl_main:
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-	lea rdi, [rel const4] ; (ArrayType (IntType) 3)
+	lea rdi, [rel const4] ; (ArrayType (TupleType (IntType) (IntType) (IntType)) 3)
 	lea rsi, [rsp]
 	call _show
 	add rsp, 32
