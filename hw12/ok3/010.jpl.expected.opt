@@ -40,33 +40,47 @@ _jpl_main:
 	sub rsp, 8
 	; Computing bound for k
 	push qword 3
-	; Computing bound for j
-	push qword 3
-	; Computing bound for i
-	push qword 0
 	mov rax, [rsp]
 	cmp rax, 0
 	jg .jump1
 	lea rdi, [rel const0] ; non-positive loop bound
 	call _fail_assertion
 .jump1:
+	; Computing bound for j
+	push qword 3
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump2
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump2:
+	; Computing bound for i
+	push qword 0
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump3
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+.jump3:
 	; Computing total size of heap memory to allocate
 	mov rdi, 24 ; sizeof {int,int,int}
 	imul rdi, [rsp + 0 + 0] ; multiply by 0
-	jno .jump2
-	lea rdi, [rel const1] ; overflow computing array size
-	call _fail_assertion
-.jump2:
-	imul rdi, [rsp + 0 + 8] ; multiply by 3
-	jno .jump3
-	lea rdi, [rel const1] ; overflow computing array size
-	call _fail_assertion
-.jump3:
-	imul rdi, [rsp + 0 + 16] ; multiply by 3
 	jno .jump4
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 .jump4:
+	imul rdi, [rsp + 0 + 8] ; multiply by 3
+	jno .jump5
+	lea rdi, [rel const1] ; overflow computing array size
+	call _fail_assertion
+.jump5:
+	imul rdi, [rsp + 0 + 16] ; multiply by 3
+	jno .jump6
+	lea rdi, [rel const1] ; overflow computing array size
+	call _fail_assertion
+.jump6:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize k to 0
@@ -78,7 +92,7 @@ _jpl_main:
 	; Initialize i to 0
 	mov rax, 0
 	push rax
-.jump5: ; Begin body of loop
+.jump7: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 56 to rsp
@@ -114,19 +128,19 @@ _jpl_main:
 	; Compare k to its bound
 	mov rax, [rsp + 16]
 	cmp rax, 3
-	jl .jump5 ; If k < bound, next iter
+	jl .jump7 ; If k < bound, next iter
 	mov qword [rsp + 16], 0 ; k = 0
 	add qword [rsp + 8], 1 ; j++
 	; Compare j to its bound
 	mov rax, [rsp + 8]
 	cmp rax, 3
-	jl .jump5 ; If j < bound, next iter
+	jl .jump7 ; If j < bound, next iter
 	mov qword [rsp + 8], 0 ; j = 0
 	add qword [rsp + 0], 1 ; i++
 	; Compare i to its bound
 	mov rax, [rsp + 0]
 	cmp rax, 0
-	jl .jump5 ; If i < bound, next iter
+	jl .jump7 ; If i < bound, next iter
 	; End body of loop
 	; Free all loop variables
 	add rsp, 24

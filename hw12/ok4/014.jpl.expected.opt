@@ -52,18 +52,24 @@ _jpl_main:
 .jump1:
 	; Computing bound for i
 	push qword 256
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump2
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+.jump2:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by 256
-	jno .jump2
-	lea rdi, [rel const1] ; overflow computing array size
-	call _fail_assertion
-.jump2:
-	imul rdi, [rsp + 0 + 8] ; multiply by argnum
 	jno .jump3
 	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
 .jump3:
+	imul rdi, [rsp + 0 + 8] ; multiply by argnum
+	jno .jump4
+	lea rdi, [rel const1] ; overflow computing array size
+	call _fail_assertion
+.jump4:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 16], rax ; Move to pre-allocated space
 	; Initialize j to 0
@@ -72,14 +78,13 @@ _jpl_main:
 	; Initialize i to 0
 	mov rax, 0
 	push rax
-.jump4: ; Begin body of loop
+.jump5: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 48 to rsp
 		mov r10, [rbp - 48 + 0]
 		mov [rsp + 0], r10
 	; Index to store in
-	shl rax, 8
 	mov rax, [rsp + 8]
 	imul rax, [rsp + 32] ; No overflow if indices in bounds
 	add rax, [rsp + 16]
@@ -95,13 +100,13 @@ _jpl_main:
 	; Compare j to its bound
 	mov rax, [rsp + 8]
 	cmp rax, [rsp + 24]
-	jl .jump4 ; If j < bound, next iter
+	jl .jump5 ; If j < bound, next iter
 	mov qword [rsp + 8], 0 ; j = 0
 	add qword [rsp + 0], 1 ; i++
 	; Compare i to its bound
 	mov rax, [rsp + 0]
 	cmp rax, 256
-	jl .jump4 ; If i < bound, next iter
+	jl .jump5 ; If i < bound, next iter
 	; End body of loop
 	; Free all loop variables
 	add rsp, 16

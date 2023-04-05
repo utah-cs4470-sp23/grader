@@ -24,9 +24,10 @@ extern _to_int
 extern _to_float
 
 section .data
-const0: dq 1234781234897
-const1: db `overflow computing array size`, 0
-const2: db `(ArrayType (TupleType (IntType) (IntType) (IntType)) 2)`, 0
+const0: db `non-positive loop bound`, 0
+const1: dq 1234781234897
+const2: db `overflow computing array size`, 0
+const3: db `(ArrayType (TupleType (IntType) (IntType) (IntType)) 2)`, 0
 
 section .text
 jpl_main:
@@ -39,21 +40,35 @@ _jpl_main:
 	sub rsp, 8
 	; Computing bound for j
 	push qword 3
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump1
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump1:
 	; Computing bound for i
-	mov rax, [rel const0] ; 1234781234897
+	mov rax, [rel const1] ; 1234781234897
 	push rax
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump2
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+.jump2:
 	; Computing total size of heap memory to allocate
 	mov rdi, 24 ; sizeof {int,int,int}
 	imul rdi, [rsp + 0 + 0] ; multiply by 1234781234897
-	jno .jump1
-	lea rdi, [rel const1] ; overflow computing array size
+	jno .jump3
+	lea rdi, [rel const2] ; overflow computing array size
 	call _fail_assertion
-.jump1:
+.jump3:
 	imul rdi, [rsp + 0 + 8] ; multiply by 3
-	jno .jump2
-	lea rdi, [rel const1] ; overflow computing array size
+	jno .jump4
+	lea rdi, [rel const2] ; overflow computing array size
 	call _fail_assertion
-.jump2:
+.jump4:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 16], rax ; Move to pre-allocated space
 	; Initialize j to 0
@@ -62,7 +77,7 @@ _jpl_main:
 	; Initialize i to 0
 	mov rax, 0
 	push rax
-.jump3: ; Begin body of loop
+.jump5: ; Begin body of loop
 	; Compute loop body
 	sub rsp, 8
 	; Moving 8 bytes from rbp - 48 to rsp
@@ -96,18 +111,18 @@ _jpl_main:
 	; Compare j to its bound
 	mov rax, [rsp + 8]
 	cmp rax, 3
-	jl .jump3 ; If j < bound, next iter
+	jl .jump5 ; If j < bound, next iter
 	mov qword [rsp + 8], 0 ; j = 0
 	add qword [rsp + 0], 1 ; i++
 	; Compare i to its bound
 	mov rax, [rsp + 0]
-	cmp rax, 1234781234897
-	jl .jump3 ; If i < bound, next iter
+	cmp rax, [rsp + 16]
+	jl .jump5 ; If i < bound, next iter
 	; End body of loop
 	; Free all loop variables
 	add rsp, 16
 	; array left on stack
-	lea rdi, [rel const2] ; (ArrayType (TupleType (IntType) (IntType) (IntType)) 2)
+	lea rdi, [rel const3] ; (ArrayType (TupleType (IntType) (IntType) (IntType)) 2)
 	lea rsi, [rsp]
 	call _show
 	add rsp, 24
