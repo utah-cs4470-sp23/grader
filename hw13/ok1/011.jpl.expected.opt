@@ -24,8 +24,9 @@ extern _to_int
 extern _to_float
 
 section .data
-const0: db `overflow computing array size`, 0
-const1: db `(ArrayType (IntType) 3)`, 0
+const0: db `non-positive loop bound`, 0
+const1: db `overflow computing array size`, 0
+const2: db `(ArrayType (IntType) 3)`, 0
 
 section .text
 jpl_main:
@@ -39,27 +40,47 @@ _jpl_main:
 	sub rsp, 8
 	; Computing bound for k
 	push qword 1024
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump1
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+.jump1:
 	; Computing bound for j
 	push qword 1024
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump2
+	sub rsp, 8 ; Align stack
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+	add rsp, 8 ; Remove alignment
+.jump2:
 	; Computing bound for i
 	push qword 1024
+	mov rax, [rsp]
+	cmp rax, 0
+	jg .jump3
+	lea rdi, [rel const0] ; non-positive loop bound
+	call _fail_assertion
+.jump3:
 	; Computing total size of heap memory to allocate
 	mov rdi, 8 ; sizeof int
 	imul rdi, [rsp + 0 + 0] ; multiply by 1024
-	jno .jump1
-	lea rdi, [rel const0] ; overflow computing array size
+	jno .jump4
+	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump1:
+.jump4:
 	imul rdi, [rsp + 0 + 8] ; multiply by 1024
-	jno .jump2
-	lea rdi, [rel const0] ; overflow computing array size
+	jno .jump5
+	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump2:
+.jump5:
 	imul rdi, [rsp + 0 + 16] ; multiply by 1024
-	jno .jump3
-	lea rdi, [rel const0] ; overflow computing array size
+	jno .jump6
+	lea rdi, [rel const1] ; overflow computing array size
 	call _fail_assertion
-.jump3:
+.jump6:
 	call _jpl_alloc ; Put pointer to heap space in RAX
 	mov [rsp + 24], rax ; Move to pre-allocated space
 	; Initialize k to 0
@@ -71,11 +92,10 @@ _jpl_main:
 	; Initialize i to 0
 	mov rax, 0
 	push rax
-.jump4: ; Begin body of loop
+.jump7: ; Begin body of loop
 	; Compute loop body
 	push qword 21
 	; Index to store in
-	shl rax, 10
 	mov rax, [rsp + 8]
 	shl rax, 10
 	add rax, [rsp + 16]
@@ -92,25 +112,25 @@ _jpl_main:
 	add qword [rsp + 16], 1
 	; Compare k to its bound
 	mov rax, [rsp + 16]
-	cmp rax, 1024
-	jl .jump4 ; If k < bound, next iter
+	cmp rax, [rsp + 40]
+	jl .jump7 ; If k < bound, next iter
 	mov qword [rsp + 16], 0 ; k = 0
 	add qword [rsp + 8], 1 ; j++
 	; Compare j to its bound
 	mov rax, [rsp + 8]
-	cmp rax, 1024
-	jl .jump4 ; If j < bound, next iter
+	cmp rax, [rsp + 32]
+	jl .jump7 ; If j < bound, next iter
 	mov qword [rsp + 8], 0 ; j = 0
 	add qword [rsp + 0], 1 ; i++
 	; Compare i to its bound
 	mov rax, [rsp + 0]
-	cmp rax, 1024
-	jl .jump4 ; If i < bound, next iter
+	cmp rax, [rsp + 24]
+	jl .jump7 ; If i < bound, next iter
 	; End body of loop
 	; Free all loop variables
 	add rsp, 24
 	; array left on stack
-	lea rdi, [rel const1] ; (ArrayType (IntType) 3)
+	lea rdi, [rel const2] ; (ArrayType (IntType) 3)
 	lea rsi, [rsp]
 	call _show
 	add rsp, 32
