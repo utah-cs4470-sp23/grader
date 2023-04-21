@@ -115,10 +115,6 @@ jplc:
 	curl -L 'https://github.com/utah-cs4470-sp23/class/releases/latest/download/jplc-$(OS)' -o ./jplc
 	chmod +x jplc
 
-pp-gh:
-	curl -L 'https://github.com/utah-cs4470-sp23/class/releases/latest/download/pp-gh' -o ./pp-gh
-	chmod +x pp-gh
-
 print-os:
 	@ echo $(OS)
 
