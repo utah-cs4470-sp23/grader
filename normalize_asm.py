@@ -38,7 +38,7 @@ def redo_float(m):
 
 FLOAT_RE = re.compile(r"^(const[0-9]+:\s*dq\s*)([0-9\.eE+-]+)(.*)$")
 
-def normalize(line):
+def normalize_line(line):
     if ";" in line:
         line = line.split(";", 1)[0]
     line = ADDRESS_RE.sub(domath, line)
@@ -47,8 +47,13 @@ def normalize(line):
     line = " ".join(line.split())
     return line
 
+def normalize(lines):
+    for line in lines:
+        line2 = normalize_line(line)
+        if line2 and not line2.isspace():
+            yield line2
+
 if __name__ == "__main__":
     import sys
-    for line in sys.stdin:
-        line2 = normalize(line)
-        if line2 and not line2.isspace(): print(line2)
+    for line in normalize(sys.stdin):
+        print(line2)
