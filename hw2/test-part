@@ -9,9 +9,18 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 test1() {
     PROG="$1"
     OUT="$2"
-    make --silent --no-print-directory -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$HERE"/out.txt
     printf "%s : " $(basename "$PROG")
-    diff -c "$HERE/out.txt" "$OUT" && echo pass
+    make --silent --no-print-directory -C "$DIR" run FLAGS="-l" TEST="$PROG" >"$HERE"/out.txt
+    if ! grep -c "Compilation succeeded" "$HERE"/out.txt >/dev/null ||
+       grep -c "Compilation failed" "$HERE"/out.txt >/dev/null; then
+        echo "fail: file should have typechecked"
+        echo "======= Output ======="
+        cat "$HERE"/out.txt
+        echo "======================"
+        return 1
+    fi
+    sed "\$d" "$HERE"/out.txt > "$HERE"/out.txt2
+    diff -c "$HERE/out.txt2" "$OUT" && echo pass
 }
 
 test2() {
@@ -53,7 +62,7 @@ forall() {
     count=0
     total=0
     for f in "$TESTS"/*.jpl; do
-        if "$@" "$f" "$f".output; then
+        if "$@" "$f" "$f".expected; then
             count=$((count + 1))
         else
             : pass
