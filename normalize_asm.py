@@ -56,4 +56,4 @@ def normalize(lines):
 if __name__ == "__main__":
     import sys
     for line in normalize(sys.stdin):
-        print(line2)
+        print(line)

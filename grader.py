@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Tuple
 from pathlib import Path
 import tempfile
 import subprocess
@@ -12,18 +13,17 @@ import sys
 import normalize_asm
 import time
 import ppsexp
+import concurrent.futures as futures
 
 DIR="~/jpl/pavpan/"
 TIMEOUT=60 # Seconds
 
 class ParseSuccessError(Exception): pass
-class StudentCompilerFailed(Exception): pass
-class StudentCompilerTimeout(Exception): pass
-class StudentCompilerInvalid(Exception): pass
+class CompilerFailed(Exception): pass
+class CompilerTimeout(Exception): pass
+class CompilerInvalid(Exception): pass
 
-class CorrectCompilerInvalid(Exception): pass
-
-def parse_success(out):
+def parse_success(out : str) -> Tuple[bool, str]:
     parts = out.strip().rsplit("\n", 1)
     if len(parts) > 1:
         main_body, last_line = parts
@@ -48,7 +48,7 @@ def parse_success(out):
     else:
         return has_success > has_failure, main_body
 
-def run_student(flags, in_file):
+def run_student(flags, in_file, require=None):
     try:
         res = subprocess.run([
             "make",
@@ -60,15 +60,17 @@ def run_student(flags, in_file):
             "TEST=" + str(in_file.resolve()),
         ], capture_output=True, timeout=TIMEOUT, text=True)
     except subprocess.TimeoutExpired as e:
-        raise StudentCompilerTimeout(e)
+        raise CompilerTimeout(e)
     except subprocess.CalledProcessError as e:
-        raise StudentCompilerFailed(e)
+        raise CompilerFailed(e)
     else:
         try:
             success, out = parse_success(res.stdout)
         except ParseSuccessError as e:
-            raise StudentCompilerInvalid(str(e), res.stdout, res.stderr)
-        return success, out
+            raise CompilerInvalid(str(e), res.stdout, res.stderr)
+        if require is not None and success != require:
+            raise CompilerInvalid(f"File should {' ' if require else 'not '} have been accepted", out, res.stderr)
+        return success, out, res.stderr
 
 def run_compiler(flags, in_file):
     res = subprocess.run(["./jplc"] + shlex.split(flags) + [str(in_file.resolve())],
@@ -97,12 +99,16 @@ class FileSpec:
             idx = f"{idx:0>8}"
         return idx
 
+    def run(self):
+        raise NotImplementedError
+
+    def regen(self):
+        raise NotImplementedError
+
 @dataclass
 class ValidSpec(FileSpec):
     def run(self):
-        success, out = run_student(self.flags, self.in_file)
-        if not success:
-            raise StudentCompilerInvalid(f"File should have been accepted", out, None)
+        success, out, err = run_student(self.flags, self.in_file, require=True)
         
     def regen(self):
         pass
@@ -110,12 +116,17 @@ class ValidSpec(FileSpec):
 @dataclass
 class InvalidSpec(FileSpec):
     def run(self):
-        success, out = run_student(self.flags, self.in_file)
-        if success:
-            raise StudentCompilerInvalid(f"File should not have been accepted", out, None)
+        success, out, err = run_student(self.flags, self.in_file, require=False)
         
     def regen(self):
         pass
+
+def diff(fromtext, totext, fromfile=None, tofile=None):
+    diff_lines = list(difflib.context_diff(
+        fromtext, totext, lineterm="", fromfile=fromfile, tofile=tofile))
+    if diff_lines:
+        count = len([line for line in diff_lines if line.startswith("- ") or line.startswith("+ ") or line.startswith("! ")])
+        raise CompilerInvalid(f"{count} lines differ", "\n".join(diff_lines), None)
 
 @dataclass
 class DiffSpec(FileSpec):
@@ -133,35 +144,69 @@ class DiffSpec(FileSpec):
             f"Expected output for {self.expected_file.name} not found"
         with self.expected_file.open() as f:
             expected = f.read()
-        success, out = run_student(self.flags, self.in_file)
-        if not success:
-            raise StudentCompilerInvalid(f"File should have been accepted", out, None)
+        success, out, err = run_student(self.flags, self.in_file, require=True)
         expected = expected.strip().split("\n")
         out = out.strip().split("\n")
         if self.normalize:
             expected = list(self.normalize(expected))
             out = list(self.normalize(out))
-            
-        diff_lines = list(difflib.context_diff(
-            expected, out, lineterm="",
-            fromfile=self.expected_file.name, tofile="Your output"))
-        if diff_lines:
-            count = len([line for line in diff_lines if line.startswith("- ") or line.startswith("+ ") or line.startswith("! ")])
-            raise StudentCompilerInvalid(f"{count} lines differ", "\n".join(diff_lines), None)
+        diff(expected, out, fromfile=self.expected_file.name, tofile="Your compiler")
 
     def regen(self):
         success, out = run_compiler(self.flags, self.in_file)
         if not success:
-            raise CorrectCompilerInvalid(f"File should have been accepted", out)
+            raise CompilerInvalid(f"File should have been accepted", out)
         with self.expected_file.open("wt") as f:
+            f.write(out)
+
+@dataclass
+class OptSpec(FileSpec):
+    expected_O0 : Path
+    expected_O1 : Path
+
+    def __init__(self, in_file, flags):
+        self.in_file = in_file
+        self.flags = flags
+        self.expected_O0 = in_file.parent / (in_file.name + ".expected")
+        self.expected_O1 = in_file.parent / (in_file.name + ".expected.opt")
+
+    def run(self):
+        assert self.expected_O0.exists(), \
+            f"Expected output for {self.expected_O0.name} not found"
+        with self.expected_O0.open() as f:
+            expected = f.read()
+        success, out, err = run_student("-s", self.in_file, require=True)
+        expected = list(normalize_asm.normalize(expected.strip().split("\n")))
+        out = list(normalize_asm.normalize(out.strip().split("\n")))
+        diff(expected, out, fromfile=self.expected_O0.name, tofile="Your compiler")
+
+        assert self.expected_O1.exists(), \
+            f"Expected output for {self.expected_O1.name} not found"
+        with self.expected_O1.open() as f:
+            expected = f.read()
+        success, out, err = run_student(f"-s {self.flags}", self.in_file, err, require=True)
+        expected = list(normalize_asm.normalize(expected.strip().split("\n")))
+        out = list(normalize_asm.normalize(out.strip().split("\n")))
+        diff(expected, out, fromfile=self.expected_O1.name, tofile="Your compiler")
+
+    def regen(self):
+        success, out = run_compiler("-s", self.in_file)
+        if not success:
+            raise CompilerInvalid(f"File should have been accepted", out)
+        with self.expected_O0.open("wt") as f:
+            f.write(out)
+        success, out = run_compiler(f"-s {self.flags}", self.in_file)
+        if not success:
+            raise CompilerInvalid(f"File should have been accepted", out)
+        with self.expected_O1.open("wt") as f:
             f.write(out)
 
 @dataclass
 class RunSpec(FileSpec):
     def run(self):
-        success, out = run_student(self.flags, self.in_file)
+        success, out, err = run_student(self.flags, self.in_file)
         msg = "was successful" if success else "failed"
-        raise StudentCompilerInvalid(f"Compilation {msg}", out, None)
+        raise CompilerInvalid(f"Compilation {msg}", out, err)
 
 def print_fancy(name, out):
     if not out: return
@@ -181,7 +226,7 @@ def regen_all(filespecs):
         print(filespec.in_file.name, "...", flush=True, end=" ")
         try:
             filespec.regen()
-        except CorrectCompilerInvalid as e:
+        except CompilerInvalid as e:
             failures += 1
             print("error")
             print(str(e.args[0]))
@@ -195,60 +240,56 @@ def regen_all(filespecs):
             print("done")
     return failures
 
-def test_all(name, filespecs, grade=False, timeout=False):
+def test_one(filespec : FileSpec) -> Tuple[str, str, Optional[str], Optional[str]]:
+    try:
+        filespec.run()
+    except CompilerTimeout as e:
+        msg = f"{filespec.in_file.name}: Timeout after {e.timeout} seconds"
+        return "T", msg, e.stdout, e.stderr
+    except CompilerFailed as e:
+        msg = f"{filespec.in_file.name}: Process returned bad error code {e.returncode}"
+        return "F", msg, e.stdout, e.stderr
+    except CompilerInvalid as e:
+        msg, out, err = e.args
+        msg = f"{filespec.in_file.name}: {msg}"
+        return "W", msg, out, err
+    else:
+        return ".", "", None, None
+
+def test_all(name, filespecs, grade=False, threads=None):
     start_time = time.time()
     total = 0
-    success = 0
+    failure = 0
     total_since = len(name) + 1
     filespecs = sorted(filespecs, key=FileSpec.index)
     outputs = []
     print(f"{name} ", end="", flush=True)
-    for filespec in filespecs:
+    if threads is None:
+        domap = map
+    else:
+        pool = futures.ThreadPoolExecutor(max_workers=threads)
+        domap = pool.map
+    for status, msg, out, err in domap(test_one, filespecs):
         total += 1
         total_since += 1
-        try:
-            filespec.run()
-        except StudentCompilerTimeout as e:
+        print(status, end="", flush=True)
+        if status != ".":
+            print()
+            print(msg)
+            print_fancy("Standard Out", out)
+            print_fancy("Standard Error", err)
             total_since = 0
-            e = e.args[0]
-            print("T")
-            print(f"{filespec.in_file.name}: Timeout after {e.timeout} seconds")
-            print_fancy("StdOut", e.stdout)
-            print_fancy("StdErr", e.stderr)
+            failure += 1
             if not grade: sys.exit(1)
-        except StudentCompilerFailed as e:
-            total_since = 0
-            print("F")
-            e = e.args[0]
-            print(f"{filespec.in_file.name}: Process returned bad error code {e.returncode}")
-            print_fancy("StdOut", e.stdout)
-            print_fancy("StdErr", e.stderr)
-            if not grade: sys.exit(2)
-        except StudentCompilerInvalid as e:
-            total_since = 0
-            print("W")
-            msg, out, err = e.args
-            print(f"{filespec.in_file.name}:", msg)
-            print_fancy("StdOut", out)
-            print_fancy("StdErr", err)
-            if not grade: sys.exit(3)
-        except Exception as e:
-            total_since = 0
-            print("X")
-            print(f"{filespec.in_file.name}: The auto-grader encountered a fatal error")
-            print("Please report this to the instructors")
-            print("======= Traceback: =======")
-            traceback.print_exc()
-        else:
-            print(".", end="", flush=True)
-            success += 1
         if total_since > 71:
             total_since = 0
             print()
     print()
     if grade:
-        print(f"Passed {success}/{total} = {success/total*100:.1f}% tests")
-    return total - success
+        print(f"Passed {total - failure}/{total} = {(1 - failure/total)*100:.1f}% tests")
+    if threads:
+        pool.shutdown()
+    return failure
             
 HERE = Path(__file__).parent.resolve()
 
@@ -322,6 +363,18 @@ HWS = {
        "5": makespec(DiffSpec, HERE / "hw11/ok-fuzzer/", "-s", normalize=normalize_asm.normalize),
        "ec": makespec(DiffSpec, HERE / "hw11/extra/", "-s", normalize=normalize_asm.normalize),
    },
+   "12": {
+       "1": makespec(OptSpec, HERE / "hw12/ok1/", "-O1"),
+       "2": makespec(OptSpec, HERE / "hw12/ok2/", "-O1"),
+       "3": makespec(OptSpec, HERE / "hw12/ok3/", "-O1"),
+       "4": makespec(OptSpec, HERE / "hw12/ok4/", "-O1"),
+       "5": makespec(OptSpec, HERE / "hw12/ok5/", "-O1"),
+   },
+   "13": {
+       "1": makespec(OptSpec, HERE / "hw13/ok1/", "-O2"),
+       "2": makespec(OptSpec, HERE / "hw13/ok2/", "-O2"),
+       "3": makespec(OptSpec, HERE / "hw13/ok-fuzzer/", "-O2"),
+   },
 }
 
 def main(args):
@@ -360,13 +413,13 @@ def main(args):
 
             name = f"Homework {hwname} part {partname}"
             if args.tool == "grade":
-                failures += test_all(name, tests, grade=True)
+                failures += test_all(name, tests, grade=True, threads=args.threads)
             elif args.tool == "test":
-                failures += test_all(name, tests)
+                failures += test_all(name, tests, threads=args.threads)
             elif args.tool == "regen":
                 failures += regen_all(tests)
             elif args.tool == "run":
-                failures += test_all(name, [RunSpec(test.in_file, test.flags) for test in tests])
+                failures += test_all(name, [RunSpec(test.in_file, test.flags) for test in tests], threads=args.threads, grade=True)
     sys.exit(failures)
 
 if __name__ == "__main__":
@@ -379,12 +432,19 @@ if __name__ == "__main__":
                         help="Which phase assignment to test")
     parser.add_argument("--test", type=str, default="all",
                         help="Which specific test to run")
+    parser.add_argument("--threads", type=int, default=None,
+                        help="When passed, run the compiler in parallel for more speed")
     args = parser.parse_args()
     try:
         main(args)
-    except ValueError as e:
-        print(f"Error: {e}")
-        sys.exit(2)
     except KeyboardInterrupt:
         print("interrupted")
         sys.exit(1)
+    except Exception as e:
+        total_since = 0
+        print("X")
+        print(f"The auto-grader encountered a fatal error")
+        print("Please report this to the instructors")
+        print("======= Traceback: =======")
+        traceback.print_exc()
+        sys.exit(127)
