@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 
 from typing import Optional, Tuple
-from pathlib import Path
-import tempfile
-import subprocess
 from dataclasses import dataclass
 import traceback
 import shlex
 import difflib
-import argparse
-import sys
-import normalize_asm
-import time
-import ppsexp
+import normalize_asm, ppsexp
+from pathlib import Path
+import subprocess
 import concurrent.futures as futures
+import argparse, sys
+import shutil
 
 DIR="~/jpl/pavpan/"
 TIMEOUT=60 # Seconds
@@ -77,11 +74,13 @@ def run_compiler(flags, in_file):
                          capture_output=True, timeout=TIMEOUT, text=True)
     try:
         success, out = parse_success(res.stdout)
-    except ValueError as e:
+    except ParseSuccessError as e:
         print(e)
         print(res.stdout)
         raise 
-    return success, out
+    if not success:
+        raise ValueError(f"File {in_file} should have been accepted with {flags}")
+    return out
     
 @dataclass
 class FileSpec:
@@ -153,9 +152,7 @@ class DiffSpec(FileSpec):
         diff(expected, out, fromfile=self.expected_file.name, tofile="Your compiler")
 
     def regen(self):
-        success, out = run_compiler(self.flags, self.in_file)
-        if not success:
-            raise CompilerInvalid(f"File should have been accepted", out)
+        out = run_compiler(self.flags, self.in_file)
         with self.expected_file.open("wt") as f:
             f.write(out)
 
@@ -190,16 +187,8 @@ class OptSpec(FileSpec):
         diff(expected, out, fromfile=self.expected_O1.name, tofile="Your compiler")
 
     def regen(self):
-        success, out = run_compiler("-s", self.in_file)
-        if not success:
-            raise CompilerInvalid(f"File should have been accepted", out)
-        with self.expected_O0.open("wt") as f:
-            f.write(out)
-        success, out = run_compiler(f"-s {self.flags}", self.in_file)
-        if not success:
-            raise CompilerInvalid(f"File should have been accepted", out)
-        with self.expected_O1.open("wt") as f:
-            f.write(out)
+        self.expected_O0.open("wt").write(run_compiler("-s", self.in_file))
+        self.expected_O1.open("wt").write(run_compiler(f"-s {self.flags}", self.in_file))
 
 @dataclass
 class RunSpec(FileSpec):
@@ -214,6 +203,7 @@ def print_fancy(name, out):
     print(f"======= {name}: =======")
     print(out)
     print()
+    print(f"=======================")
     
 def makespec(T, path, *args, **kwargs):
     for f in sorted(path.iterdir(), key=lambda f: f.name):
@@ -259,7 +249,6 @@ def test_one(filespec : FileSpec) -> Tuple[str, str, Optional[str], Optional[str
         return ".", "", None, None
 
 def test_all(name, filespecs, grade=False, threads=None):
-    start_time = time.time()
     total = 0
     failure = 0
     total_since = len(name) + 1
@@ -379,39 +368,43 @@ HWS = {
    },
 }
 
-def main(args):
-    if args.tool not in ["grade", "test", "count", "regen", "run"]:
-        raise ValueError(f"Unknown tool {args.tool}; only have these:\n" + \
-                         "  grade, test, count, regen, run")
-    failures = 0
-    if args.hw == "all":
-        homeworks = HWS
-    elif args.hw == "current":
-        homeworks = { CURRENT_HW: HWS[CURRENT_HW] }
-    elif args.hw in HWS:
-        homeworks = { args.hw: HWS[args.hw] }
+def get_keys(d, keys, name, current=None):
+    if keys == "all":
+        return d
+    elif keys == "current" and current is not None:
+        return get_keys(d, current, name)
+    elif "," in keys:
+        out = dict()
+        for pat in keys.split(","):
+            out.update(get_keys(d, pat, name))
+        return out
+    elif keys in d:
+        return { keys: d[keys] }
     else:
-        raise ValueError(f"Unknown homework number {args.hw}; only have these:\n" + \
-                         "  " + ", ".join(HWS.keys()))
-    if args.tool == "count" and len(homeworks) > 1:
-        raise ValueError("Cannot 'count' more than one homework at a time")
-    for hwname, homework in homeworks.items():
-        if args.part == "all":
-            parts = homework
-        elif args.part in homework:
-            parts = { args.part: homework[args.part] }
-        else:
-            raise ValueError(f"Unknown part number {args.part}; hw{hwname} only has:\n" + \
-                             "  " + ", ".join(homework.keys()))
+        assert False, f"Unknown {name} {keys}, only have these:\n  {', '.join(d.keys())}"
 
+def main(args):
+    failures = 0
+    assert args.tool in ["grade", "test", "count", "regen", "run"], \
+        f"Unknown tool {args.tool}; only have these:\n  grade, test, count, regen, run"
+
+    homeworks = get_keys(HWS, args.hw, "homework")
+    if args.tool == "count":
+        assert len(homeworks) == 1, "Cannot 'count' more than one homework at a time"
+
+    for hwname, homework in homeworks.items():
+        if hwname == "1":
+            assert shutil.which("compare"), "Please install the `compare` tool to test this homework locally"
+        else:
+            assert shutil.which("make"), "Please install `make` to test this homework locally"
+            
+        parts = get_keys(homework, args.part, f"hw{hwname} part")
         if args.tool == "count":
-            cnt = len([k for k in parts.keys() if k.isdigit()])
-            print(cnt)
-            return
+            return print(len([k for k in parts.keys() if k.isdigit()]))
+
         for partname, part in parts.items():
             tests = [test for test in part if test.matches(args.test)]
-            if not tests:
-                raise ValueError(f"Unknown test number {args.test} in hw{hwname} part {partname}")
+            assert tests, f"Unknown test {args.test} in hw{hwname} part {partname}"
 
             name = f"Homework {hwname} part {partname}"
             if args.tool == "grade":
@@ -421,7 +414,8 @@ def main(args):
             elif args.tool == "regen":
                 failures += regen_all(tests)
             elif args.tool == "run":
-                failures += test_all(name, [RunSpec(test.in_file, test.flags) for test in tests], threads=args.threads, grade=True)
+                new_tests = [RunSpec(test.in_file, test.flags) for test in tests]
+                failures += test_all(name, new_tests, threads=args.threads, grade=True)
     sys.exit(failures)
 
 if __name__ == "__main__":
@@ -441,7 +435,10 @@ if __name__ == "__main__":
         main(args)
     except KeyboardInterrupt:
         print("interrupted")
-        sys.exit(1)
+        sys.exit(128)
+    except AssertionError as e:
+        print(f"Error: {e}")
+        sys.exit(129)
     except Exception as e:
         total_since = 0
         print("X")
@@ -449,4 +446,4 @@ if __name__ == "__main__":
         print("Please report this to the instructors")
         print("======= Traceback: =======")
         traceback.print_exc()
-        sys.exit(127)
+        sys.exit(130)
