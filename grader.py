@@ -108,7 +108,7 @@ class FileSpec:
 @dataclass
 class ValidSpec(FileSpec):
     def run(self):
-        success, out, err = run_student(self.flags, self.in_file, require=True)
+        run_student(self.flags, self.in_file, require=True)
         
     def regen(self):
         pass
@@ -116,7 +116,7 @@ class ValidSpec(FileSpec):
 @dataclass
 class InvalidSpec(FileSpec):
     def run(self):
-        success, out, err = run_student(self.flags, self.in_file, require=False)
+        run_student(self.flags, self.in_file, require=False)
         
     def regen(self):
         pass
@@ -184,7 +184,7 @@ class OptSpec(FileSpec):
             f"Expected output for {self.expected_O1.name} not found"
         with self.expected_O1.open() as f:
             expected = f.read()
-        success, out, err = run_student(f"-s {self.flags}", self.in_file, err, require=True)
+        success, out, err = run_student(f"-s {self.flags}", self.in_file, require=True)
         expected = list(normalize_asm.normalize(expected.strip().split("\n")))
         out = list(normalize_asm.normalize(out.strip().split("\n")))
         diff(expected, out, fromfile=self.expected_O1.name, tofile="Your compiler")
