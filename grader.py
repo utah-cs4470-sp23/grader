@@ -249,7 +249,7 @@ def test_one(filespec : FileSpec) -> Tuple[str, str, Optional[str], Optional[str
     else:
         return ".", "", None, None
 
-def test_all(name, filespecs, grade=False, threads=None):
+def test_all(name, filespecs, threads=None):
     total = 0
     failure = 0
     total_since = len(name) + 1
@@ -272,13 +272,11 @@ def test_all(name, filespecs, grade=False, threads=None):
             print_fancy("Standard Error", err)
             total_since = 0
             failure += 1
-            if not grade: sys.exit(1)
         if total_since > 71:
             total_since = 0
             print()
     print()
-    if grade:
-        print(f"Passed {total - failure}/{total} = {(1 - failure/total)*100:.1f}% tests")
+    print(f"Passed {total - failure}/{total} = {(1 - failure/total)*100:.1f}% tests")
     if threads:
         pool.shutdown()
     return failure
@@ -351,28 +349,28 @@ HWS = {
        "3": NullPart(InvalidSpec, "hw2/lexer-tests3/", "-l"),
    },
    "3": {
-       "1": NullPart(DiffSpec, "hw3/ok/", "-p", normalize=ppsexp),
+       "1": ManualPart(DiffSpec, "hw3/ok.jpl", "hw3/ok/", "-p", normalize=ppsexp),
        "2": NullPart(DiffSpec, "hw3/ok-fuzzer/", "-p", normalize=ppsexp),
        "3": NullPart(InvalidSpec, "hw3/fail-fuzzer1/", "-p"),
        "4": NullPart(InvalidSpec, "hw3/fail-fuzzer2/", "-p"),
        "5": NullPart(InvalidSpec, "hw3/fail-fuzzer3/", "-p"),
    },
    "4": {
-       "1": NullPart(DiffSpec, "hw4/ok/", "-p", normalize=ppsexp),
+       "1": ManualPart(DiffSpec, "hw4/ok.jpl", "hw4/ok/", "-p", normalize=ppsexp),
        "2": NullPart(DiffSpec, "hw4/ok-fuzzer/", "-p", normalize=ppsexp),
        "3": NullPart(InvalidSpec, "hw4/fail-fuzzer1/", "-p"),
        "4": NullPart(InvalidSpec, "hw4/fail-fuzzer2/", "-p"),
        "5": NullPart(InvalidSpec, "hw4/fail-fuzzer3/", "-p"),
    },
    "5": {
-       "1": NullPart(DiffSpec, "hw5/ok/", "-p", normalize=ppsexp),
+       "1": ManualPart(DiffSpec, "hw5/ok.jpl", "hw5/ok/", "-p", normalize=ppsexp),
        "2": NullPart(DiffSpec, "hw5/ok-fuzzer/", "-p", normalize=ppsexp),
        "3": NullPart(InvalidSpec, "hw5/fail-fuzzer1/", "-p"),
        "4": NullPart(InvalidSpec, "hw5/fail-fuzzer2/", "-p"),
        "5": NullPart(InvalidSpec, "hw5/fail-fuzzer3/", "-p"),
    },
    "6": {
-       "1": NullPart(DiffSpec, "hw6/ok/", "-t", normalize=ppsexp),
+       "1": ManualPart(DiffSpec, "hw6/ok.jpl", "hw6/ok/", "-t", normalize=ppsexp),
        "2": NullPart(DiffSpec, "hw6/ok-fuzzer/", "-t", normalize=ppsexp),
        "3": NullPart(InvalidSpec, "hw6/fail-fuzzer1/", "-t"),
        "4": NullPart(InvalidSpec, "hw6/fail-fuzzer2/", "-t"),
@@ -443,8 +441,8 @@ def get_keys(d, keys, name, current=None):
 
 def main(args):
     failures = 0
-    assert args.tool in ["grade", "test", "count", "regen", "run"], \
-        f"Unknown tool {args.tool}; only have these:\n  grade, test, count, regen, run"
+    assert args.tool in ["test", "count", "regen", "run"], \
+        f"Unknown tool {args.tool}; only have these:\n  test, count, regen, run"
 
     homeworks = get_keys(HWS, args.hw, "homework")
     if args.tool == "count":
@@ -468,21 +466,19 @@ def main(args):
             assert tests, f"Unknown test {args.test} in hw{hwname} part {partname}"
 
             name = f"Homework {hwname} part {partname}"
-            if args.tool == "grade":
-                failures += test_all(name, tests, grade=True, threads=args.threads)
-            elif args.tool == "test":
+            if args.tool == "test":
                 failures += test_all(name, tests, threads=args.threads)
             elif args.tool == "regen":
                 failures += regen_all(tests)
             elif args.tool == "run":
                 new_tests = [RunSpec(test.in_file, test.flags) for test in tests]
-                failures += test_all(name, new_tests, threads=args.threads, grade=True)
+                failures += test_all(name, new_tests, threads=args.threads)
     sys.exit(failures)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test and grade CS 4470 assignments")
     parser.add_argument("tool", type=str,
-                        help="What to do: grade, test, count, regen")
+                        help="What to do: test, count, regen, run")
     parser.add_argument("--hw", type=str, default="current",
                         help="Which homework assignment to test")
     parser.add_argument("--part", type=str, default="all",
