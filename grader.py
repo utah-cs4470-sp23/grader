@@ -69,7 +69,7 @@ def run_student(flags, in_file, require=None):
         except ParseSuccessError as e:
             raise CompilerInvalid(str(e), res.stdout, res.stderr)
         if require is not None and success != require:
-            raise CompilerInvalid(f"File should {' ' if require else 'not '} have been accepted", out, res.stderr)
+            raise CompilerInvalid(f"File should {' ' if require else 'not '}have been accepted", out, res.stderr)
         return success, out, res.stderr
 
 def run_compiler(flags, in_file):
@@ -244,9 +244,11 @@ def test_one(filespec : FileSpec) -> Tuple[str, str, Optional[str], Optional[str
     try:
         filespec.run()
     except CompilerTimeout as e:
+        e = e.args[0]
         msg = f"{filespec.in_file.name}: Timeout after {e.timeout} seconds"
         return "T", msg, e.stdout, e.stderr
     except CompilerFailed as e:
+        e = e.args[0]
         msg = f"{filespec.in_file.name}: Process returned bad error code {e.returncode}"
         return "F", msg, e.stdout, e.stderr
     except CompilerInvalid as e:
