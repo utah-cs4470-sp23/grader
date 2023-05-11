@@ -47,7 +47,7 @@ def normalize_line(line):
     line = " ".join(line.split())
     return line
 
-def normalize(lines):
+def ppasm(lines):
     for line in lines:
         line2 = normalize_line(line)
         if line2 and not line2.isspace():
@@ -55,5 +55,5 @@ def normalize(lines):
 
 if __name__ == "__main__":
     import sys
-    for line in normalize(sys.stdin):
+    for line in ppasm(sys.stdin):
         print(line)

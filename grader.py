@@ -5,7 +5,8 @@ from dataclasses import dataclass
 import traceback
 import shlex
 import difflib
-import normalize_asm, ppsexp
+from normalize_asm import ppasm
+from ppsexp import ppsexp
 from pathlib import Path
 import subprocess
 import concurrent.futures as futures
@@ -173,8 +174,8 @@ class OptSpec(FileSpec):
         with self.expected_O0.open() as f:
             expected = f.read()
         success, out, err = run_student("-s", self.in_file, require=True)
-        expected = list(normalize_asm.normalize(expected.strip().split("\n")))
-        out = list(normalize_asm.normalize(out.strip().split("\n")))
+        expected = list(ppasm(expected.strip().split("\n")))
+        out = list(ppasm(out.strip().split("\n")))
         diff(expected, out, fromfile=self.expected_O0.name, tofile="Your compiler")
 
         assert self.expected_O1.exists(), \
@@ -182,8 +183,8 @@ class OptSpec(FileSpec):
         with self.expected_O1.open() as f:
             expected = f.read()
         success, out, err = run_student(f"-s {self.flags}", self.in_file, require=True)
-        expected = list(normalize_asm.normalize(expected.strip().split("\n")))
-        out = list(normalize_asm.normalize(out.strip().split("\n")))
+        expected = list(ppasm(expected.strip().split("\n")))
+        out = list(ppasm(out.strip().split("\n")))
         diff(expected, out, fromfile=self.expected_O1.name, tofile="Your compiler")
 
     def regen(self):
@@ -281,6 +282,63 @@ def test_all(name, filespecs, grade=False, threads=None):
     if threads:
         pool.shutdown()
     return failure
+
+class NullPart:
+    def __init__(self, spec, path, *args, **kwargs):
+        self.spec = spec
+        self.path = HERE / path
+        self.args = args
+        self.kwargs = kwargs
+
+    def unpack(self):
+        pass
+
+    def all(self):
+        return makespec(self.spec, self.path, *self.args, **self.kwargs)
+
+class ManualPart:
+    def __init__(self, spec, file, path, *args, **kwargs):
+        self.spec = spec
+        self.file = HERE / file
+        self.path = HERE / path
+        self.args = args
+        self.kwargs = kwargs
+
+    def unpack(self):
+        print("Unpacking", self.file.name, end=" ", flush=True)
+        with self.file.open("rt") as f:
+            tests = f.read().split("\n\n")
+        for i, part in enumerate(tests):
+            print(".", end="", flush=True)
+            with open(self.path / f"{i+1:03}.jpl", "w") as f:
+                f.write(part + "\n")
+        print()
+
+    def all(self):
+        return makespec(self.spec, self.path, *self.args, **self.kwargs)
+
+class FuzzerPart:
+    def __init__(self, spec, path, number, subset, seed, *args, fuzz=False, **kwargs):
+        self.spec = spec
+        self.path = HERE / path
+        self.number = number
+        self.subset = subset
+        self.seed = seed
+        self.fuzz = fuzz
+        self.args = args
+        self.kwargs = kwargs
+
+    def unpack(self):
+        res = subprocess.run([
+            "python3", "~/jpl/pavpan/src/fuzzer.py",
+            str(self.number),
+            "--seed", str(self.seed),
+            "--subset", str(self.subset),
+            "--out-dir", str(self.path),
+        ] + (["--fuzz"] if self.fuzz else []), check=True, stdout=sys.stdout, stderr=sys.stderr)
+
+    def all(self):
+        return makespec(self.spec, path, *self.args, **kwargs)
             
 HERE = Path(__file__).parent.resolve()
 
@@ -288,83 +346,83 @@ CURRENT_HW = "3"
 
 HWS = {
    "2": {
-       "1": makespec(DiffSpec, HERE / "hw2/lexer-tests1/", "-l"),
-       "2": makespec(ValidSpec, HERE / "hw2/lexer-tests2/", "-l"),
-       "3": makespec(InvalidSpec, HERE / "hw2/lexer-tests3/", "-l"),
+       "1": NullPart(DiffSpec, "hw2/lexer-tests1/", "-l"),
+       "2": NullPart(ValidSpec, "hw2/lexer-tests2/", "-l"),
+       "3": NullPart(InvalidSpec, "hw2/lexer-tests3/", "-l"),
    },
    "3": {
-       "1": makespec(DiffSpec, HERE / "hw3/ok/", "-p", normalize=ppsexp.ppsexp),
-       "2": makespec(DiffSpec, HERE / "hw3/ok-fuzzer/", "-p", normalize=ppsexp.ppsexp),
-       "3": makespec(InvalidSpec, HERE / "hw3/fail-fuzzer1/", "-p"),
-       "4": makespec(InvalidSpec, HERE / "hw3/fail-fuzzer2/", "-p"),
-       "5": makespec(InvalidSpec, HERE / "hw3/fail-fuzzer3/", "-p"),
+       "1": NullPart(DiffSpec, "hw3/ok/", "-p", normalize=ppsexp),
+       "2": NullPart(DiffSpec, "hw3/ok-fuzzer/", "-p", normalize=ppsexp),
+       "3": NullPart(InvalidSpec, "hw3/fail-fuzzer1/", "-p"),
+       "4": NullPart(InvalidSpec, "hw3/fail-fuzzer2/", "-p"),
+       "5": NullPart(InvalidSpec, "hw3/fail-fuzzer3/", "-p"),
    },
    "4": {
-       "1": makespec(DiffSpec, HERE / "hw4/ok/", "-p", normalize=ppsexp.ppsexp),
-       "2": makespec(DiffSpec, HERE / "hw4/ok-fuzzer/", "-p", normalize=ppsexp.ppsexp),
-       "3": makespec(InvalidSpec, HERE / "hw4/fail-fuzzer1/", "-p"),
-       "4": makespec(InvalidSpec, HERE / "hw4/fail-fuzzer2/", "-p"),
-       "5": makespec(InvalidSpec, HERE / "hw4/fail-fuzzer3/", "-p"),
+       "1": NullPart(DiffSpec, "hw4/ok/", "-p", normalize=ppsexp),
+       "2": NullPart(DiffSpec, "hw4/ok-fuzzer/", "-p", normalize=ppsexp),
+       "3": NullPart(InvalidSpec, "hw4/fail-fuzzer1/", "-p"),
+       "4": NullPart(InvalidSpec, "hw4/fail-fuzzer2/", "-p"),
+       "5": NullPart(InvalidSpec, "hw4/fail-fuzzer3/", "-p"),
    },
    "5": {
-       "1": makespec(DiffSpec, HERE / "hw5/ok/", "-p", normalize=ppsexp.ppsexp),
-       "2": makespec(DiffSpec, HERE / "hw5/ok-fuzzer/", "-p", normalize=ppsexp.ppsexp),
-       "3": makespec(InvalidSpec, HERE / "hw5/fail-fuzzer1/", "-p"),
-       "4": makespec(InvalidSpec, HERE / "hw5/fail-fuzzer2/", "-p"),
-       "5": makespec(InvalidSpec, HERE / "hw5/fail-fuzzer3/", "-p"),
+       "1": NullPart(DiffSpec, "hw5/ok/", "-p", normalize=ppsexp),
+       "2": NullPart(DiffSpec, "hw5/ok-fuzzer/", "-p", normalize=ppsexp),
+       "3": NullPart(InvalidSpec, "hw5/fail-fuzzer1/", "-p"),
+       "4": NullPart(InvalidSpec, "hw5/fail-fuzzer2/", "-p"),
+       "5": NullPart(InvalidSpec, "hw5/fail-fuzzer3/", "-p"),
    },
    "6": {
-       "1": makespec(DiffSpec, HERE / "hw6/ok/", "-t", normalize=ppsexp.ppsexp),
-       "2": makespec(DiffSpec, HERE / "hw6/ok-fuzzer/", "-t", normalize=ppsexp.ppsexp),
-       "3": makespec(InvalidSpec, HERE / "hw6/fail-fuzzer1/", "-t"),
-       "4": makespec(InvalidSpec, HERE / "hw6/fail-fuzzer2/", "-t"),
-       "5": makespec(InvalidSpec, HERE / "hw6/fail-fuzzer3/", "-t"),
+       "1": NullPart(DiffSpec, "hw6/ok/", "-t", normalize=ppsexp),
+       "2": NullPart(DiffSpec, "hw6/ok-fuzzer/", "-t", normalize=ppsexp),
+       "3": NullPart(InvalidSpec, "hw6/fail-fuzzer1/", "-t"),
+       "4": NullPart(InvalidSpec, "hw6/fail-fuzzer2/", "-t"),
+       "5": NullPart(InvalidSpec, "hw6/fail-fuzzer3/", "-t"),
    },
    "7": {
-       "1": makespec(DiffSpec, HERE / "hw7/ok/", "-t", normalize=ppsexp.ppsexp),
-       "2": makespec(InvalidSpec, HERE / "hw7/fail/", "-t"),
-       "3": makespec(DiffSpec, HERE / "hw7/ok-fuzzer/", "-t", normalize=ppsexp.ppsexp),
-       "4": makespec(InvalidSpec, HERE / "hw7/fail-fuzzer/", "-t"),
+       "1": ManualPart(DiffSpec, "hw7/ok.jpl", "hw7/ok/", "-t", normalize=ppsexp),
+       "2": ManualPart(InvalidSpec, "hw7/fail.jpl", "hw7/fail/", "-t"),
+       "3": NullPart(DiffSpec, "hw7/ok-fuzzer/", "-t", normalize=ppsexp),
+       "4": NullPart(InvalidSpec, "hw7/fail-fuzzer/", "-t"),
    },
    "8": {
-       "1": makespec(DiffSpec, HERE / "hw8/ok/", "-t", normalize=ppsexp.ppsexp),
-       "2": makespec(InvalidSpec, HERE / "hw8/fail/", "-t"),
-       "3": makespec(DiffSpec, HERE / "hw8/ok-fuzzer/", "-t", normalize=ppsexp.ppsexp),
-       "4": makespec(InvalidSpec, HERE / "hw8/fail-fuzzer/", "-t"),
+       "1": ManualPart(DiffSpec, "hw8/ok.jpl", "hw8/ok/", "-t", normalize=ppsexp),
+       "2": ManualPart(InvalidSpec, "hw8/fail.jpl", "hw8/fail/", "-t"),
+       "3": NullPart(DiffSpec, "hw8/ok-fuzzer/", "-t", normalize=ppsexp),
+       "4": NullPart(InvalidSpec, "hw8/fail-fuzzer/", "-t"),
    },
    "9": {
-       "1": makespec(DiffSpec, HERE / "hw9/ok1/", "-s", normalize=normalize_asm.normalize),
-       "2": makespec(DiffSpec, HERE / "hw9/ok2/", "-s", normalize=normalize_asm.normalize),
-       "3": makespec(DiffSpec, HERE / "hw9/ok3/", "-s", normalize=normalize_asm.normalize),
-       "4": makespec(DiffSpec, HERE / "hw9/ok-fuzzer/", "-s", normalize=normalize_asm.normalize),
+       "1": ManualPart(DiffSpec, "hw9/ok1.jpl", "hw9/ok1/", "-s", normalize=ppasm),
+       "2": ManualPart(DiffSpec, "hw9/ok2.jpl", "hw9/ok2/", "-s", normalize=ppasm),
+       "3": ManualPart(DiffSpec, "hw9/ok3.jpl", "hw9/ok3/", "-s", normalize=ppasm),
+       "4": NullPart(DiffSpec, "hw9/ok-fuzzer/", "-s", normalize=ppasm),
    },
    "10": {
-       "1": makespec(DiffSpec, HERE / "hw10/ok1/", "-s", normalize=normalize_asm.normalize),
-       "2": makespec(DiffSpec, HERE / "hw10/ok2/", "-s", normalize=normalize_asm.normalize),
-       "3": makespec(DiffSpec, HERE / "hw10/ok3/", "-s", normalize=normalize_asm.normalize),
-       "4": makespec(DiffSpec, HERE / "hw10/ok4/", "-s", normalize=normalize_asm.normalize),
-       "5": makespec(DiffSpec, HERE / "hw10/ok-fuzzer/", "-s", normalize=normalize_asm.normalize),
-       "ec": makespec(DiffSpec, HERE / "hw10/extra-fuzzer/", "-s", normalize=normalize_asm.normalize),
+       "1": ManualPart(DiffSpec, "hw10/ok1.jpl", "hw10/ok1/", "-s", normalize=ppasm),
+       "2": ManualPart(DiffSpec, "hw10/ok2.jpl", "hw10/ok2/", "-s", normalize=ppasm),
+       "3": ManualPart(DiffSpec, "hw10/ok3.jpl", "hw10/ok3/", "-s", normalize=ppasm),
+       "4": ManualPart(DiffSpec, "hw10/ok4.jpl", "hw10/ok4/", "-s", normalize=ppasm),
+       "5": NullPart(DiffSpec, "hw10/ok-fuzzer/", "-s", normalize=ppasm),
+       "ec": NullPart(DiffSpec, "hw10/extra-fuzzer/", "-s", normalize=ppasm),
    },
    "11": {
-       "1": makespec(DiffSpec, HERE / "hw11/ok1/", "-s", normalize=normalize_asm.normalize),
-       "2": makespec(DiffSpec, HERE / "hw11/ok2/", "-s", normalize=normalize_asm.normalize),
-       "3": makespec(DiffSpec, HERE / "hw11/ok3/", "-s", normalize=normalize_asm.normalize),
-       "4": makespec(DiffSpec, HERE / "hw11/ok4/", "-s", normalize=normalize_asm.normalize),
-       "5": makespec(DiffSpec, HERE / "hw11/ok-fuzzer/", "-s", normalize=normalize_asm.normalize),
-       "ec": makespec(DiffSpec, HERE / "hw11/extra/", "-s", normalize=normalize_asm.normalize),
+       "1": ManualPart(DiffSpec, "hw11/ok1.jpl", "hw11/ok1/", "-s", normalize=ppasm),
+       "2": ManualPart(DiffSpec, "hw11/ok2.jpl", "hw11/ok2/", "-s", normalize=ppasm),
+       "3": ManualPart(DiffSpec, "hw11/ok3.jpl", "hw11/ok3/", "-s", normalize=ppasm),
+       "4": ManualPart(DiffSpec, "hw11/ok4.jpl", "hw11/ok4/", "-s", normalize=ppasm),
+       "5": NullPart(DiffSpec, "hw11/ok-fuzzer/", "-s", normalize=ppasm),
+       "ec": NullPart(DiffSpec, "hw11/extra/", "-s", normalize=ppasm),
    },
    "12": {
-       "1": makespec(OptSpec, HERE / "hw12/ok1/", "-O1"),
-       "2": makespec(OptSpec, HERE / "hw12/ok2/", "-O1"),
-       "3": makespec(OptSpec, HERE / "hw12/ok3/", "-O1"),
-       "4": makespec(OptSpec, HERE / "hw12/ok4/", "-O1"),
-       "5": makespec(OptSpec, HERE / "hw12/ok5/", "-O1"),
+       "1": ManualPart(OptSpec, "hw12/ok1.jpl", "hw12/ok1/", "-O1"),
+       "2": ManualPart(OptSpec, "hw12/ok2.jpl", "hw12/ok2/", "-O1"),
+       "3": ManualPart(OptSpec, "hw12/ok3.jpl", "hw12/ok3/", "-O1"),
+       "4": ManualPart(OptSpec, "hw12/ok4.jpl", "hw12/ok4/", "-O1"),
+       "5": ManualPart(OptSpec, "hw12/ok5.jpl", "hw12/ok5/", "-O1"),
    },
    "13": {
-       "1": makespec(OptSpec, HERE / "hw13/ok1/", "-O2"),
-       "2": makespec(OptSpec, HERE / "hw13/ok2/", "-O2"),
-       "3": makespec(OptSpec, HERE / "hw13/ok-fuzzer/", "-O2"),
+       "1": ManualPart(OptSpec, "hw13/ok1.jpl", "hw13/ok1/", "-O2"),
+       "2": ManualPart(OptSpec, "hw13/ok2.jpl", "hw13/ok2/", "-O2"),
+       "3": NullPart(OptSpec, "hw13/ok-fuzzer/", "-O2"),
    },
 }
 
@@ -403,7 +461,10 @@ def main(args):
             return print(len([k for k in parts.keys() if k.isdigit()]))
 
         for partname, part in parts.items():
-            tests = [test for test in part if test.matches(args.test)]
+            if args.tool == "regen":
+                part.unpack()
+
+            tests = [test for test in part.all() if test.matches(args.test)]
             assert tests, f"Unknown test {args.test} in hw{hwname} part {partname}"
 
             name = f"Homework {hwname} part {partname}"
